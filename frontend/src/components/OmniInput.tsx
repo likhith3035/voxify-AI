@@ -4,7 +4,6 @@ import React, { useState } from "react";
 import {
   Mic,
   ArrowUp,
-  Paperclip,
   ChevronDown,
   Presentation,
   Video,
@@ -107,21 +106,8 @@ export const OmniInput: React.FC<OmniInputProps> = ({
           <div className="flex items-center justify-between pt-2 border-t border-neutral-100">
             {/* Attachment Button */}
             <div className="flex items-center gap-2">
-              <label 
-                className="p-2 rounded-xl text-neutral-500 hover:text-neutral-800 hover:bg-neutral-100 cursor-pointer transition-colors"
-                title="Attach image or diagram for vision analysis"
-              >
-                <Paperclip className="w-4 h-4" />
-                <input
-                  type="file"
-                  accept="image/*"
-                  onChange={handleFileChange}
-                  className="hidden"
-                />
-              </label>
-
-              <span className="text-[11px] text-neutral-400 hidden sm:inline">
-                Supports speech, slide decks, images & YouTube
+              <span className="text-[11px] text-neutral-400">
+                Supports speech, slide decks, and instant conversational AI
               </span>
             </div>
 

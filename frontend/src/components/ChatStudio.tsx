@@ -10,7 +10,6 @@ import {
   Check,
   Volume2,
   VolumeX,
-  Paperclip,
   RefreshCw,
   Plus,
   ChevronDown,
@@ -771,19 +770,7 @@ export const ChatStudio: React.FC<ChatStudioProps> = ({
               className="w-full resize-none bg-transparent outline-none text-neutral-900 placeholder-[#8e8e8e] text-[14px] sm:text-[15px] leading-relaxed mb-2 sm:mb-3 font-sans"
             />
 
-            <div className="flex items-center justify-between pt-1">
-              <label
-                className="p-1.5 text-neutral-500 hover:text-neutral-800 cursor-pointer rounded-lg hover:bg-neutral-200/50 transition-colors"
-                title="Attach file or image"
-              >
-                <Paperclip className="w-4 h-4" />
-                <input
-                  type="file"
-                  accept="image/*"
-                  onChange={handleFileChange}
-                  className="hidden"
-                />
-              </label>
+            <div className="flex items-center justify-end pt-1">
 
               <div className="flex items-center gap-2 sm:gap-2.5">
                 <button
@@ -1065,18 +1052,6 @@ export const ChatStudio: React.FC<ChatStudioProps> = ({
           }}
           className="flex items-center gap-1.5 sm:gap-2 bg-[#f4f4f4] rounded-[20px] sm:rounded-[24px] px-2.5 sm:px-3.5 py-1.5 sm:py-2.5 transition-all focus-within:ring-1 focus-within:ring-neutral-300"
         >
-          <label
-            className="p-1 sm:p-1.5 text-neutral-500 hover:text-neutral-800 cursor-pointer rounded-lg hover:bg-neutral-200/50 transition-colors"
-            title="Attach image or diagram"
-          >
-            <Paperclip className="w-4 h-4" />
-            <input
-              type="file"
-              accept="image/*"
-              onChange={handleFileChange}
-              className="hidden"
-            />
-          </label>
 
           <button
             type="button"
