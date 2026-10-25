@@ -1,0 +1,427 @@
+<!DOCTYPE html>
+
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+
+```
+<title>Voxify | Speech to Text</title>
+
+<link rel="stylesheet" href="{{ url_for('static', filename='style.css') }}">
+```
+
+</head>
+
+<body>
+
+<header class="navbar">
+    <a href="#home" class="logo">
+        <span class="logo-icon">V</span>
+        <span>Voxify<span class="logo-dot">.</span></span>
+    </a>
+
+```
+<nav>
+    <a href="#home">Home</a>
+    <a href="#features">Features</a>
+    <a href="#about">About</a>
+    <a href="#contact">Contact</a>
+</nav>
+
+<a href="#converter" class="nav-button">Get Started ↗</a>
+```
+
+</header>
+
+<main>
+
+```
+<!-- HOME SECTION -->
+<section class="hero" id="home">
+
+    <div class="hero-content">
+        <div class="badge">
+            <span class="live-dot"></span>
+            SMART SPEECH RECOGNITION
+        </div>
+
+        <h1>
+            Your Voice.<br>
+            Your Words.<br>
+            <span>Your Freedom.</span>
+        </h1>
+
+        <p class="hero-description">
+            Turn your spoken words into written text effortlessly.
+            Speak naturally, capture your thoughts, and save your
+            words in seconds.
+        </p>
+
+        <div class="hero-buttons">
+            <a href="#converter" class="button-primary">
+                🎙 Start Converting
+            </a>
+
+            <a href="#features" class="button-secondary">
+                Explore Features →
+            </a>
+        </div>
+
+        <div class="trust-note">
+            <span>✓</span> Simple to use
+            <span>✓</span> Quick conversion
+            <span>✓</span> Easy text export
+        </div>
+    </div>
+
+    <div class="hero-visual">
+
+        <div class="floating-label label-top">
+            <span class="small-icon">✦</span>
+            Smart Recognition
+        </div>
+
+        <div class="voice-card">
+
+            <div class="voice-card-header">
+                <div>
+                    <span class="mini-label">YOUR WORKSPACE</span>
+                    <h3>Voice Studio</h3>
+                </div>
+
+                <span class="online-badge">● Ready</span>
+            </div>
+
+            <div class="microphone-circle">
+                <div class="mic-ring">
+                    <span class="big-mic">🎙️</span>
+                </div>
+            </div>
+
+            <div class="waveform" aria-hidden="true">
+                <span></span><span></span><span></span>
+                <span></span><span></span><span></span>
+                <span></span><span></span><span></span>
+                <span></span><span></span><span></span>
+                <span></span><span></span><span></span>
+                <span></span><span></span><span></span>
+                <span></span><span></span><span></span>
+            </div>
+
+            <p class="voice-hint">Your ideas, captured in words.</p>
+
+            <div class="preview-text">
+                <span class="preview-icon">✍</span>
+                <div>
+                    <strong>Speech becomes text</strong>
+                    <p>Simple. Smart. Convenient.</p>
+                </div>
+            </div>
+
+        </div>
+
+        <div class="floating-label label-bottom">
+            <span class="check-icon">✓</span>
+            Ready when you are
+        </div>
+
+    </div>
+
+</section>
+
+
+<!-- FEATURES SECTION -->
+<section class="features section-padding" id="features">
+
+    <div class="section-heading">
+        <span class="section-tag">WHY VOXIFY?</span>
+
+        <h2>Everything you need.<br>
+            <span>Nothing complicated.</span>
+        </h2>
+
+        <p>
+            A simple way to turn your voice into useful text.
+        </p>
+    </div>
+
+    <div class="feature-grid">
+
+        <article class="feature-card">
+            <div class="feature-icon blue-icon">🎙️</div>
+            <h3>Voice Recognition</h3>
+            <p>
+                Speak into your microphone and convert your speech
+                into written text.
+            </p>
+            <a href="#converter">Try it now →</a>
+        </article>
+
+        <article class="feature-card">
+            <div class="feature-icon purple-icon">⚡</div>
+            <h3>Simple Experience</h3>
+            <p>
+                Start and stop recording using easy-to-understand
+                controls.
+            </p>
+            <a href="#converter">Get started →</a>
+        </article>
+
+        <article class="feature-card">
+            <div class="feature-icon green-icon">📄</div>
+            <h3>Save Your Words</h3>
+            <p>
+                Copy your converted text or download it for later use.
+            </p>
+            <a href="#converter">Convert speech →</a>
+        </article>
+
+    </div>
+
+</section>
+
+
+<!-- CONVERTER SECTION -->
+<section class="converter-section section-padding" id="converter">
+
+    <div class="section-heading">
+        <span class="section-tag">LET'S GET STARTED</span>
+
+        <h2>Meet your <span>Voice Studio.</span></h2>
+
+        <p>
+            Click start, speak clearly, and watch your words appear.
+        </p>
+    </div>
+
+    <div class="converter-box">
+
+        <div class="converter-header">
+            <div class="converter-title">
+                <div class="converter-icon">🎤</div>
+
+                <div>
+                    <h3>Speech-to-Text Converter</h3>
+                    <p>Microphone-powered transcription</p>
+                </div>
+            </div>
+
+            <span class="ready-tag">● READY</span>
+        </div>
+
+        <div class="recording-area">
+
+            <div class="recording-decoration">🎙️</div>
+
+            <p class="recording-title">Ready to capture your voice?</p>
+
+            <p class="recording-description">
+                Make sure your microphone is enabled before recording.
+            </p>
+
+            <div class="recording-buttons">
+                <button id="startBtn" class="button-primary" type="button">
+                    ▶ Start Recording
+                </button>
+
+                <button id="stopBtn" class="button-stop" type="button">
+                    ■ Stop Recording
+                </button>
+            </div>
+
+            <p id="status" class="status-message" aria-live="polite">
+                Ready to record
+            </p>
+
+        </div>
+
+        <div class="output-area">
+
+            <div class="output-header">
+                <h3>📝 Your Transcribed Text</h3>
+                <span class="text-label">TEXT OUTPUT</span>
+            </div>
+
+            <textarea
+                id="output"
+                placeholder="Your spoken words will appear here..."
+                aria-label="Transcribed text"
+            ></textarea>
+
+            <div class="output-footer">
+                <p>Tip: Speak clearly for better recognition.</p>
+
+                <div class="output-buttons">
+                    <button id="copyBtn" type="button" class="utility-button">
+                        📋 Copy
+                    </button>
+
+                    <button id="downloadBtn" type="button" class="utility-button">
+                        ↓ Download
+                    </button>
+
+                    <button id="clearBtn" type="button" class="utility-button clear-button">
+                        ✕ Clear
+                    </button>
+                </div>
+            </div>
+
+        </div>
+
+    </div>
+
+    <p class="privacy-note">
+        🔒 Microphone access is controlled by your browser.
+    </p>
+
+</section>
+
+
+<!-- ABOUT SECTION -->
+<section class="about-section section-padding" id="about">
+
+    <div class="about-visual">
+        <div class="about-square square-one"></div>
+        <div class="about-square square-two"></div>
+
+        <div class="about-main-card">
+            <div class="about-mic">🎙️</div>
+            <span class="about-small-label">BUILT FOR EVERYDAY USE</span>
+            <h3>Speak freely.<br>Write effortlessly.</h3>
+
+            <div class="about-line"></div>
+
+            <p>Voice to text, made simple.</p>
+        </div>
+    </div>
+
+    <div class="about-content">
+        <span class="section-tag">ABOUT OUR PROJECT</span>
+
+        <h2>Technology that<br>
+            <span>understands your voice.</span>
+        </h2>
+
+        <p>
+            Voxify is a Python-based Speech-to-Text web application.
+            It provides an easy-to-use interface that allows users
+            to convert spoken words into written text.
+        </p>
+
+        <p>
+            The application uses Flask for its web server and
+            browser speech recognition for voice input. Users can
+            view, copy, and download the converted text.
+        </p>
+
+        <div class="technology-list">
+            <span>Python</span>
+            <span>Flask</span>
+            <span>HTML5</span>
+            <span>CSS3</span>
+            <span>JavaScript</span>
+        </div>
+
+        <a href="#converter" class="button-primary about-button">
+            Try the Application →
+        </a>
+    </div>
+
+</section>
+
+
+<!-- CONTACT SECTION -->
+<section class="contact-section section-padding" id="contact">
+
+    <div class="contact-card">
+        <div class="contact-symbol">✉</div>
+
+        <span class="section-tag">GET IN TOUCH</span>
+
+        <h2>Have a question?</h2>
+
+        <p>
+            Want to learn more about this project?
+            Explore the application and try the speech converter.
+        </p>
+
+        <a href="#converter" class="button-primary">
+            Try Speech-to-Text →
+        </a>
+    </div>
+
+</section>
+```
+
+</main>
+
+<!-- FOOTER -->
+
+<footer class="footer">
+    <a href="#home" class="logo footer-logo">
+        <span class="logo-icon">V</span>
+        <span>Voxify<span class="logo-dot">.</span></span>
+    </a>
+
+```
+<p>Turning spoken words into written possibilities.</p>
+
+<a href="#home" class="back-to-top">Back to top ↑</a>
+
+<div class="footer-bottom">
+    © 2026 Voxify. Built with Python, Flask and JavaScript.
+</div>
+```
+
+</footer>
+
+<script src="{{ url_for('static', filename='script.js') }}"></script>
+```html
+```html
+<!-- Topic-to-Video Explainer -->
+<section id="topic-explainer" class="topic-section">
+    <div class="topic-container">
+
+        <h2>AI Topic Explainer 🎬</h2>
+
+        <p>
+            Enter any topic and learn through explanations,
+            voice narration, and presentation slides.
+        </p>
+
+        <input
+            type="text"
+            id="topicInput"
+            placeholder="Example: Artificial Intelligence"
+        >
+
+        <button onclick="generateExplanation()">
+            Generate Explanation
+        </button>
+
+        <div id="presentation" class="presentation">
+            <h3 id="slideTitle">Your Topic Will Appear Here</h3>
+
+            <p id="slideText">
+                Enter a topic above and click Generate Explanation.
+            </p>
+
+            <p id="slideNumber">Slide 0</p>
+
+            <button onclick="previousSlide()">⬅ Previous</button>
+            <button onclick="nextSlide()">Next ➡</button>
+            <button onclick="speakExplanation()">🔊 Speak Explanation</button>
+            <button onclick="stopExplanation()">⏹ Stop Voice</button>
+        </div>
+
+    </div>
+</section>
+```
+
+
+
+
+</body>
+</html>
+

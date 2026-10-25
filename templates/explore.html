@@ -1,0 +1,334 @@
+<!DOCTYPE html>
+
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+
+```
+<title>Topic Explorer | Voxify</title>
+
+<link rel="stylesheet"
+      href="{{ url_for('static', filename='style.css') }}">
+
+<style>
+    .explorer-page {
+        min-height: 100vh;
+        padding: 65px 8%;
+        background: #f4f8ff;
+    }
+
+    .explorer-heading {
+        max-width: 750px;
+        margin: 0 auto 35px;
+        text-align: center;
+    }
+
+    .explorer-heading h1 {
+        margin-bottom: 12px;
+        font-size: clamp(32px, 5vw, 48px);
+        color: #13264b;
+    }
+
+    .explorer-heading h1 span {
+        color: #246bfd;
+    }
+
+    .explorer-heading p {
+        color: #71809a;
+    }
+
+    .topic-form {
+        display: flex;
+        gap: 10px;
+        max-width: 700px;
+        margin: 25px auto 45px;
+    }
+
+    .topic-form input {
+        flex: 1;
+        min-width: 0;
+        padding: 16px;
+        border: 1px solid #dce6f5;
+        border-radius: 10px;
+        font-size: 16px;
+    }
+
+    .topic-form button {
+        padding: 15px 22px;
+        border: none;
+        border-radius: 10px;
+        background: #246bfd;
+        color: white;
+        font-weight: bold;
+        cursor: pointer;
+    }
+
+    .topic-form button:disabled {
+        opacity: 0.6;
+        cursor: wait;
+    }
+
+    .result-section {
+        max-width: 1000px;
+        margin: 0 auto 40px;
+    }
+
+    .result-section h2 {
+        margin-bottom: 18px;
+        color: #13264b;
+    }
+
+    .explanation-box {
+        padding: 25px;
+        border: 1px solid #e0e9f7;
+        border-radius: 15px;
+        background: white;
+        line-height: 1.9;
+        color: #50617d;
+        white-space: pre-wrap;
+    }
+
+    .media-grid {
+        display: grid;
+        grid-template-columns: repeat(auto-fit, minmax(230px, 1fr));
+        gap: 20px;
+    }
+
+    .media-card {
+        overflow: hidden;
+        border: 1px solid #e0e9f7;
+        border-radius: 14px;
+        background: white;
+    }
+
+    .media-card img {
+        display: block;
+        width: 100%;
+        height: 200px;
+        object-fit: cover;
+        background: #e7eef9;
+    }
+
+    .media-card h3 {
+        padding: 15px;
+        font-size: 15px;
+    }
+
+    .video-frame {
+        width: 100%;
+        aspect-ratio: 16 / 9;
+        border: 0;
+        background: #e7eef9;
+    }
+
+    .media-link {
+        display: inline-block;
+        margin: 0 15px 18px;
+        color: #246bfd;
+        font-weight: bold;
+        text-decoration: none;
+    }
+
+    .message {
+        max-width: 700px;
+        margin: 20px auto;
+        text-align: center;
+        color: #52637d;
+    }
+
+    .back-link {
+        display: inline-block;
+        margin-bottom: 25px;
+        color: #246bfd;
+        text-decoration: none;
+        font-weight: bold;
+    }
+
+    @media (max-width: 550px) {
+        .explorer-page {
+            padding: 35px 5%;
+        }
+
+        .topic-form {
+            flex-direction: column;
+        }
+
+        .topic-form button {
+            width: 100%;
+        }
+    }
+</style>
+```
+
+</head>
+
+<body>
+
+<header class="navbar">
+    <a href="/" class="logo">
+        <span class="logo-icon">V</span>
+        <span>Voxify<span class="logo-dot">.</span></span>
+    </a>
+
+```
+<nav>
+    <a href="/">Home</a>
+    <a href="/#features">Features</a>
+    <a href="/#about">About</a>
+</nav>
+```
+
+</header>
+
+<main class="explorer-page">
+
+```
+<a href="/" class="back-link">← Back to Home</a>
+
+<section class="explorer-heading">
+    <h1>Learn Anything with <span>Visuals.</span></h1>
+
+    <p>
+        Enter a topic to find an explanation, related images,
+        and educational videos.
+    </p>
+</section>
+
+<form class="topic-form" id="topicForm">
+    <input
+        type="text"
+        id="topicInput"
+        placeholder="Example: Artificial Intelligence"
+        aria-label="Topic to explore"
+        maxlength="150"
+        required
+    >
+
+    <button type="submit" id="exploreBtn">
+        Explore Topic →
+    </button>
+</form>
+
+<p class="message" id="message" aria-live="polite"></p>
+
+<section class="result-section" id="explanationSection" hidden>
+    <h2>📘 Topic Explanation</h2>
+    <div class="explanation-box" id="explanation"></div>
+</section>
+
+<section class="result-section" id="imagesSection" hidden>
+    <h2>🖼️ Related Images</h2>
+    <div class="media-grid" id="imageResults"></div>
+</section>
+
+<section class="result-section" id="videosSection" hidden>
+    <h2>🎬 Educational Videos</h2>
+    <div class="media-grid" id="videoResults"></div>
+</section>
+```
+
+</main>
+
+<script>
+const form = document.getElementById("topicForm");
+const input = document.getElementById("topicInput");
+const button = document.getElementById("exploreBtn");
+const message = document.getElementById("message");
+
+form.addEventListener("submit", async function(event) {
+    event.preventDefault();
+
+    const topic = input.value.trim();
+
+    if (!topic) {
+        message.textContent = "Please enter a topic.";
+        return;
+    }
+
+    button.disabled = true;
+    message.textContent = "Finding explanations, images and videos...";
+
+    document.getElementById("explanationSection").hidden = true;
+    document.getElementById("imagesSection").hidden = true;
+    document.getElementById("videosSection").hidden = true;
+
+    try {
+        const response = await fetch(
+            "/api/explore?topic=" + encodeURIComponent(topic)
+        );
+
+        const data = await response.json();
+
+        if (!response.ok) {
+            throw new Error(data.error || "Unable to explore this topic.");
+        }
+
+        document.getElementById("explanation").textContent =
+            data.explanation;
+
+        document.getElementById("explanationSection").hidden = false;
+
+        const imageResults = document.getElementById("imageResults");
+        imageResults.replaceChildren();
+
+        data.images.forEach(function(item) {
+            const card = document.createElement("article");
+            card.className = "media-card";
+
+            const image = document.createElement("img");
+            image.src = item.thumbnail;
+            image.alt = item.title;
+            image.loading = "lazy";
+
+            const title = document.createElement("h3");
+            title.textContent = item.title;
+
+            const link = document.createElement("a");
+            link.className = "media-link";
+            link.href = item.page;
+            link.target = "_blank";
+            link.rel = "noopener noreferrer";
+            link.textContent = "View image source ↗";
+
+            card.append(image, title, link);
+            imageResults.appendChild(card);
+        });
+
+        document.getElementById("imagesSection").hidden = false;
+
+        const videoResults = document.getElementById("videoResults");
+        videoResults.replaceChildren();
+
+        data.videos.forEach(function(item) {
+            const card = document.createElement("article");
+            card.className = "media-card";
+
+            const title = document.createElement("h3");
+            title.textContent = item.title;
+
+            const link = document.createElement("a");
+            link.className = "media-link";
+            link.href = item.url;
+            link.target = "_blank";
+            link.rel = "noopener noreferrer";
+            link.textContent = "Watch video ↗";
+
+            card.append(title, link);
+            videoResults.appendChild(card);
+        });
+
+        document.getElementById("videosSection").hidden = false;
+        message.textContent = "Results for: " + topic;
+
+    } catch (error) {
+        message.textContent =
+            error.message + " Please check your internet connection and try again.";
+    } finally {
+        button.disabled = false;
+    }
+});
+</script>
+
+</body>
+</html>
