@@ -70,6 +70,7 @@ export async function POST(req: NextRequest) {
             headers: {
               "Content-Type": "application/json",
               Authorization: `Bearer ${apiKey}`,
+              "User-Agent": "VoxifyAIStudio/2.0 (Platform/Cloud)",
             },
             body: JSON.stringify({
               model,

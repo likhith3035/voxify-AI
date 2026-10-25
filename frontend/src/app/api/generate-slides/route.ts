@@ -40,9 +40,10 @@ Do not include markdown fences or introductory text. Output raw JSON only.`;
           headers: {
             "Content-Type": "application/json",
             Authorization: `Bearer ${key}`,
+            "User-Agent": "VoxifyAIStudio/2.0 (Platform/Cloud)",
           },
           body: JSON.stringify({
-            model: "llama-3.3-70b-versatile",
+            model: "openai/gpt-oss-120b",
             messages: [{ role: "user", content: prompt }],
             temperature: 0.5,
             response_format: { type: "json_object" },
