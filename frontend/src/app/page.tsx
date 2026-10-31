@@ -4,20 +4,22 @@ import React, { useState, useEffect, Suspense } from "react";
 import { Sidebar } from "../components/Sidebar";
 import { ChatStudio } from "../components/ChatStudio";
 import { SidebarModals, SidebarModalType } from "../components/SidebarModals";
+import { LiveVoiceAgent } from "../components/LiveVoiceAgent";
 import { checkBackendHealth } from "../lib/api";
 import { SavedSession } from "../types";
-import { Menu, Plus, Bot } from "lucide-react";
+import { Menu, Plus, Bot, Radio } from "lucide-react";
 
 function ChatAppContent() {
   const [sidebarCollapsed, setSidebarCollapsed] = useState(false);
   const [mobileMenuOpen, setMobileMenuOpen] = useState(false);
   const [backendOnline, setBackendOnline] = useState(false);
   const [savedSessions, setSavedSessions] = useState<SavedSession[]>([]);
-  const [activeChatId, setActiveChatId] = useState<string | null>(null);
+  const [activeChatId, setActiveChatId] = useState<string>(() => "chat_" + Date.now());
   const [activeSession, setActiveSession] = useState<SavedSession | null>(null);
   const [initialPrompt, setInitialPrompt] = useState<string>("");
   const [activeModal, setActiveModal] = useState<SidebarModalType>(null);
   const [selectedAgent, setSelectedAgent] = useState<string>("Agent");
+  const [voiceCallOpen, setVoiceCallOpen] = useState(false);
 
   useEffect(() => {
     const check = async () => {
@@ -88,7 +90,7 @@ function ChatAppContent() {
   };
 
   const handleNewChat = () => {
-    setActiveChatId(null);
+    setActiveChatId("chat_" + Date.now());
     setActiveSession(null);
     setInitialPrompt("");
   };
@@ -118,7 +120,13 @@ function ChatAppContent() {
         onSelectSession={handleSelectSession}
         onDeleteSession={handleDeleteSession}
         savedCount={savedSessions.length}
-        onOpenModal={setActiveModal}
+        onOpenModal={(modal) => {
+          if (modal === "voice_call") {
+            setVoiceCallOpen(true);
+          } else {
+            setActiveModal(modal);
+          }
+        }}
         mobileOpen={mobileMenuOpen}
         setMobileOpen={setMobileMenuOpen}
       />
@@ -149,15 +157,47 @@ function ChatAppContent() {
             </span>
           </div>
 
-          <button
-            type="button"
-            onClick={handleNewChat}
-            className="p-1.5 -mr-1 rounded-xl text-neutral-700 hover:text-neutral-900 hover:bg-neutral-100 active:bg-neutral-200 transition-colors cursor-pointer"
-            aria-label="New chat"
-            title="New chat"
-          >
-            <Plus className="w-5 h-5" />
-          </button>
+          <div className="flex items-center gap-1">
+            <button
+              type="button"
+              onClick={() => setVoiceCallOpen(true)}
+              className="p-1.5 rounded-xl text-neutral-700 hover:text-neutral-900 hover:bg-neutral-100 transition-colors cursor-pointer"
+              aria-label="Call Voxify"
+              title="Call Voxify (Live Voice Call)"
+            >
+              <Radio className="w-4 h-4 text-amber-500" />
+            </button>
+            <button
+              type="button"
+              onClick={handleNewChat}
+              className="p-1.5 -mr-1 rounded-xl text-neutral-700 hover:text-neutral-900 hover:bg-neutral-100 active:bg-neutral-200 transition-colors cursor-pointer"
+              aria-label="New chat"
+              title="New chat"
+            >
+              <Plus className="w-5 h-5" />
+            </button>
+          </div>
+        </header>
+
+        {/* Desktop Header Bar with Live Voice Call Trigger */}
+        <header className="hidden md:flex items-center justify-between px-6 py-2.5 border-b border-neutral-100 bg-white shrink-0">
+          <div className="flex items-center gap-2 text-xs text-neutral-500 font-sans">
+            <span className="font-semibold text-neutral-800">Voxify AI Studio</span>
+            <span>·</span>
+            <span className="text-neutral-400 font-mono">Groq LPU Active</span>
+          </div>
+
+          <div className="flex items-center gap-2.5">
+            <button
+              type="button"
+              onClick={() => setVoiceCallOpen(true)}
+              className="flex items-center gap-2 px-3.5 py-1.5 rounded-full bg-neutral-900 hover:bg-neutral-800 text-white text-xs font-medium shadow-xs transition-colors cursor-pointer"
+              title="Call Voxify: live continuous two-way voice partner"
+            >
+              <Radio className="w-3.5 h-3.5 text-amber-400 animate-pulse" />
+              <span>Call Voxify</span>
+            </button>
+          </div>
         </header>
 
         {/* Subtle Floating Right Helper Badge (from reference image) */}
@@ -180,6 +220,7 @@ function ChatAppContent() {
             initialMessages={activeSession?.id === activeChatId ? activeSession.messages || [] : []}
             onSaveSession={handleSaveSession}
             onNewChat={handleNewChat}
+            onStartLiveVoiceCall={() => setVoiceCallOpen(true)}
             onGenerateSlidesFromText={(text) => {
               handleTriggerPrompt(`Generate an interactive 5-slide educational presentation deck on: ${text}`);
             }}
@@ -188,6 +229,33 @@ function ChatAppContent() {
           />
         </main>
       </div>
+
+      {/* Live Voice Call Screen */}
+      <LiveVoiceAgent
+        isOpen={voiceCallOpen}
+        onClose={() => setVoiceCallOpen(false)}
+        onSaveToChat={(turns) => {
+          if (turns.length > 0) {
+            const newId = "call_" + Date.now();
+            const firstUserTurn = turns.find((t) => t.role === "user");
+            const title = firstUserTurn ? firstUserTurn.content.slice(0, 36) : "Voice Call";
+            handleSaveSession({
+              id: newId,
+              title: "Call: " + title,
+              type: "voice",
+              timestamp: new Date().toLocaleTimeString([], { hour: "2-digit", minute: "2-digit" }),
+              preview: turns[turns.length - 1]?.content.slice(0, 80) + "...",
+              content: turns.map((t) => `${t.role === "user" ? "You" : "Voxify"}: ${t.content}`).join("\n\n"),
+              messages: turns.map((t, idx) => ({
+                id: "turn_" + idx,
+                role: t.role as any,
+                content: t.content,
+                timestamp: new Date().toLocaleTimeString([], { hour: "2-digit", minute: "2-digit" }),
+              })),
+            });
+          }
+        }}
+      />
 
       {/* 3. Interactive Modals for Sidebar Features (Search, Connectors, Skills, Agents, Scheduled, Knowledge) */}
       <SidebarModals

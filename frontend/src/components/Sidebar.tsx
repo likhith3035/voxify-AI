@@ -17,6 +17,7 @@ import {
   ChevronDown,
   ChevronUp,
   Sparkles,
+  Radio,
   X
 } from "lucide-react";
 import { ActiveTab, SavedSession } from "../types";
@@ -57,6 +58,7 @@ export const Sidebar: React.FC<SidebarProps> = ({
   };
 
   const defaultItems: { label: string; icon: any; modalKey: SidebarModalType }[] = [
+    { label: "Live Voice Call", icon: Radio, modalKey: "voice_call" },
     { label: "Connectors", icon: Cable, modalKey: "connectors" },
     { label: "Skills", icon: Wand2, modalKey: "skills" },
     { label: "Agents", icon: Users2, modalKey: "agents" },
