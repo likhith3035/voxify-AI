@@ -340,12 +340,16 @@ def call_xai_grok(prompt, messages=None):
 _groq_key_index = 0
 
 def get_groq_keys():
-    """Returns a list of all configured Groq API keys from GROQ_API_KEYS and GROQ_API_KEY."""
+    """Returns a list of all configured Groq API keys from any GROQ environment variables."""
+    keys = []
     raw_keys = os.getenv("GROQ_API_KEYS", "")
-    keys = [k.strip().strip('"').strip("'") for k in raw_keys.split(",") if k.strip()]
-    single = os.getenv("GROQ_API_KEY", "").strip().strip('"').strip("'")
-    if single and single not in keys:
-        keys.insert(0, single)
+    if raw_keys:
+        keys.extend([k.strip().strip('"').strip("'") for k in raw_keys.split(",") if k.strip()])
+    for env_k, env_v in os.environ.items():
+        if ("GROQ" in env_k or env_v.strip().startswith("gsk_")) and env_v.strip().startswith("gsk_"):
+            clean_v = env_v.strip().strip('"').strip("'")
+            if clean_v not in keys:
+                keys.append(clean_v)
     return keys
 
 

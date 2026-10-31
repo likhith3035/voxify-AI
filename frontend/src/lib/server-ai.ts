@@ -91,15 +91,21 @@ export function getDeveloperInfoResponse(prompt?: string): string {
 }
 
 export function getGroqApiKeys(): string[] {
-  const envMulti = process.env.GROQ_API_KEYS || "";
-  const envSingle = process.env.GROQ_API_KEY || "";
   const set = new Set<string>();
 
-  if (envMulti) {
-    envMulti.split(",").map((k) => k.trim()).filter((k) => k.startsWith("gsk_")).forEach((k) => set.add(k));
-  }
-  if (envSingle && envSingle.startsWith("gsk_")) {
-    set.add(envSingle.trim());
+  // Automatically scan all environment variables for Groq keys (GROQ_API_KEY, GROQ_API_KEY_2, GROQ_API_KEYS, etc.)
+  for (const [key, value] of Object.entries(process.env)) {
+    if (typeof value === "string" && (key.includes("GROQ") || value.startsWith("gsk_"))) {
+      if (value.includes(",")) {
+        value
+          .split(",")
+          .map((k) => k.trim())
+          .filter((k) => k.startsWith("gsk_"))
+          .forEach((k) => set.add(k));
+      } else if (value.trim().startsWith("gsk_")) {
+        set.add(value.trim());
+      }
+    }
   }
 
   return Array.from(set);
