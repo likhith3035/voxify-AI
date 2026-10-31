@@ -18,6 +18,8 @@ import {
   Copy,
   Check,
   Zap,
+  AlertCircle,
+  Send,
 } from "lucide-react";
 import { apiStreamChatMessage } from "../lib/api";
 
@@ -55,6 +57,8 @@ export const LiveVoiceAgent: React.FC<LiveVoiceAgentProps> = ({
   const [transcript, setTranscript] = useState<TranscriptTurn[]>([]);
   const [transcriptOpen, setTranscriptOpen] = useState(false);
   const [copiedId, setCopiedId] = useState<string | null>(null);
+  const [micError, setMicError] = useState<string | null>(null);
+  const [textInput, setTextInput] = useState("");
 
   const canvasRef = useRef<HTMLCanvasElement | null>(null);
   const recognitionRef = useRef<any>(null);
@@ -66,6 +70,7 @@ export const LiveVoiceAgent: React.FC<LiveVoiceAgentProps> = ({
   const abortControllerRef = useRef<AbortController | null>(null);
   const isAgentSpeakingRef = useRef<boolean>(false);
   const isMutedRef = useRef<boolean>(false);
+  const hasPermissionErrorRef = useRef<boolean>(false);
   const speechQueueRef = useRef<string[]>([]);
   const isPlayingQueueRef = useRef<boolean>(false);
 
@@ -87,6 +92,9 @@ export const LiveVoiceAgent: React.FC<LiveVoiceAgentProps> = ({
 
     // Initialize microphone audio stream for the visualizer
     const startAudio = async () => {
+      hasPermissionErrorRef.current = false;
+      setMicError(null);
+
       try {
         const stream = await navigator.mediaDevices.getUserMedia({ audio: true });
         micStreamRef.current = stream;
@@ -101,13 +109,24 @@ export const LiveVoiceAgent: React.FC<LiveVoiceAgentProps> = ({
 
         const source = ctx.createMediaStreamSource(stream);
         source.connect(analyser);
-      } catch (err) {
-        console.warn("Microphone stream visualizer unavailable, fallback to simulated pulse", err);
+      } catch (err: any) {
+        if (err?.name === "NotFoundError" || err?.name === "DevicesNotFoundError") {
+          setMicError("No microphone found on this device. Plug in a headset/mic or type below.");
+          hasPermissionErrorRef.current = true;
+        } else if (err?.name === "NotAllowedError" || err?.name === "PermissionDeniedError") {
+          setMicError("Microphone access blocked. Click the lock icon in the address bar to allow mic access.");
+          hasPermissionErrorRef.current = true;
+        } else {
+          console.warn("Microphone stream visualizer unavailable, fallback to simulated pulse", err);
+        }
       }
 
-      // Start listening
-      setAgentState("listening");
-      startListeningLoop();
+      if (!hasPermissionErrorRef.current) {
+        setAgentState("listening");
+        startListeningLoop();
+      } else {
+        setAgentState("muted");
+      }
 
       // Initial spoken greeting from Voxify
       const greeting =
@@ -120,8 +139,12 @@ export const LiveVoiceAgent: React.FC<LiveVoiceAgentProps> = ({
       setLiveAgentSpeech(greeting);
       speakSentence(greeting, () => {
         setLiveAgentSpeech("");
-        setAgentState("listening");
-        startListeningLoop();
+        if (!hasPermissionErrorRef.current) {
+          setAgentState("listening");
+          startListeningLoop();
+        } else {
+          setAgentState("muted");
+        }
       });
     };
 
@@ -321,12 +344,19 @@ export const LiveVoiceAgent: React.FC<LiveVoiceAgentProps> = ({
       };
 
       rec.onerror = (e: any) => {
+        if (e.error === "not-allowed" || e.error === "service-not-allowed" || e.error === "audio-capture") {
+          hasPermissionErrorRef.current = true;
+          setMicError("Microphone blocked or not found. Click the lock icon to allow mic or type below.");
+          setAgentState("muted");
+          return;
+        }
         if (e.error !== "no-speech" && e.error !== "aborted") {
           console.warn("Speech recognition error:", e.error);
         }
       };
 
       rec.onend = () => {
+        if (hasPermissionErrorRef.current) return;
         // Auto-restart listening if not currently speaking
         if (!isAgentSpeakingRef.current && !isMutedRef.current && isOpen) {
           try {
@@ -698,6 +728,55 @@ CRITICAL INSTRUCTIONS FOR VOICE:
             </p>
           )}
         </div>
+
+        {/* Mic Error Banner if blocked or missing */}
+        {micError && (
+          <div className="max-w-xl w-full mx-auto mt-3 px-4 py-2.5 rounded-xl bg-amber-500/10 border border-amber-500/30 text-amber-300 text-xs flex items-center justify-between gap-3">
+            <div className="flex items-center gap-2">
+              <AlertCircle className="w-4 h-4 shrink-0 text-amber-400" />
+              <span>{micError}</span>
+            </div>
+            <button
+              type="button"
+              onClick={() => {
+                hasPermissionErrorRef.current = false;
+                setMicError(null);
+                startListeningLoop();
+              }}
+              className="px-2.5 py-1 rounded-lg bg-amber-500/20 hover:bg-amber-500/30 text-amber-200 text-[11px] font-semibold shrink-0 cursor-pointer"
+            >
+              Retry Mic
+            </button>
+          </div>
+        )}
+
+        {/* Text Conversation Fallback (Allows typing & hearing voice even without mic) */}
+        <form
+          onSubmit={(e) => {
+            e.preventDefault();
+            if (textInput.trim() && !isAgentSpeakingRef.current) {
+              handleUserSpoke(textInput.trim());
+              setTextInput("");
+            }
+          }}
+          className="max-w-xl w-full mx-auto mt-3 px-3 py-1.5 rounded-2xl bg-neutral-900 border border-neutral-800 flex items-center gap-2 focus-within:border-amber-500/40"
+        >
+          <input
+            type="text"
+            value={textInput}
+            onChange={(e) => setTextInput(e.target.value)}
+            placeholder="Type any message to converse with Voxify..."
+            className="flex-1 bg-transparent outline-none text-xs text-neutral-200 placeholder-neutral-500 font-sans"
+          />
+          <button
+            type="submit"
+            disabled={!textInput.trim() || agentState === "thinking"}
+            className="px-3 py-1 rounded-xl bg-amber-500 hover:bg-amber-400 disabled:opacity-40 text-neutral-950 font-semibold text-xs transition-colors cursor-pointer flex items-center gap-1"
+          >
+            <span>Send</span>
+            <Send className="w-3 h-3" />
+          </button>
+        </form>
       </div>
 
       {/* 3. Collapsible Live Transcript Drawer */}
