@@ -49,13 +49,15 @@ export async function apiStreamChatMessage(
   prompt: string,
   onChunk: (delta: string, engine?: string) => void,
   onDone: () => void,
-  onError: (err: any) => void
+  onError: (err: any) => void,
+  signal?: AbortSignal
 ): Promise<void> {
   try {
     const res = await fetch(`${BACKEND_URL}/api/chat/stream`, {
       method: "POST",
       headers: { "Content-Type": "application/json" },
       body: JSON.stringify({ messages, prompt }),
+      signal,
     });
 
     if (!res.ok || !res.body) {
@@ -94,7 +96,11 @@ export async function apiStreamChatMessage(
       }
     }
     onDone();
-  } catch (err) {
+  } catch (err: any) {
+    if (err?.name === "AbortError" || signal?.aborted) {
+      onDone();
+      return;
+    }
     try {
       // Fallback to non-streaming if stream drops
       const fallback = await apiSendChatMessage(messages, prompt);
