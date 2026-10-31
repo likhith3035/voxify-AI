@@ -22,7 +22,8 @@ import {
   Printer,
   Headphones,
   Radio,
-  ExternalLink
+  ExternalLink,
+  Square
 } from "lucide-react";
 import { ChatMessage, SavedSession, ActiveTab } from "../types";
 import { apiSendChatMessage, apiStreamChatMessage } from "../lib/api";
@@ -33,6 +34,7 @@ interface ChatStudioProps {
   sessionId?: string | null;
   onSaveSession: (session: SavedSession) => void;
   onNewChat?: () => void;
+  onStartLiveVoiceCall?: () => void;
   onGenerateSlidesFromText: (text: string) => void;
   onSwitchTab: (tab: ActiveTab, promptText?: string) => void;
   onAttachFile: (file: File) => void;
@@ -44,6 +46,7 @@ export const ChatStudio: React.FC<ChatStudioProps> = ({
   sessionId = null,
   onSaveSession,
   onNewChat,
+  onStartLiveVoiceCall,
   onGenerateSlidesFromText,
   onSwitchTab,
   onAttachFile,
@@ -72,6 +75,40 @@ export const ChatStudio: React.FC<ChatStudioProps> = ({
   const messagesEndRef = useRef<HTMLDivElement | null>(null);
   const recognitionRef = useRef<any>(null);
   const baseInputRef = useRef("");
+  const textareaRef = useRef<HTMLTextAreaElement | null>(null);
+  const abortControllerRef = useRef<AbortController | null>(null);
+
+  const refocusInput = () => {
+    requestAnimationFrame(() => {
+      textareaRef.current?.focus();
+    });
+  };
+
+  useEffect(() => {
+    refocusInput();
+  }, []);
+
+  const handleInputChange = (e: React.ChangeEvent<HTMLTextAreaElement>) => {
+    setInput(e.target.value);
+    e.target.style.height = "auto";
+    e.target.style.height = `${Math.min(e.target.scrollHeight, 180)}px`;
+  };
+
+  const handleKeyDown = (e: React.KeyboardEvent<HTMLTextAreaElement>) => {
+    if (e.key === "Enter" && !e.shiftKey) {
+      e.preventDefault();
+      handleSend();
+    }
+  };
+
+  const handleStopStreaming = () => {
+    if (abortControllerRef.current) {
+      abortControllerRef.current.abort();
+      abortControllerRef.current = null;
+    }
+    setIsLoading(false);
+    refocusInput();
+  };
 
   useEffect(() => {
     isHandsFreeRef.current = isHandsFree;
@@ -194,7 +231,7 @@ export const ChatStudio: React.FC<ChatStudioProps> = ({
     let md = `# Voxify AI Study Transcript\n\n`;
     md += `*Exported on: ${new Date().toLocaleString()}*\n\n---\n\n`;
     messages.forEach((m) => {
-      const author = m.role === "user" ? "👤 You" : `🤖 Voxify AI (${m.engine || "LLM"})`;
+      const author = m.role === "user" ? "You" : `Voxify AI (${m.engine || "LLM"})`;
       md += `### ${author} [${m.timestamp || ""}]\n\n${m.content}\n\n---\n\n`;
     });
     const blob = new Blob([md], { type: "text/markdown;charset=utf-8" });
@@ -375,7 +412,12 @@ export const ChatStudio: React.FC<ChatStudioProps> = ({
 
     setMessages((prev) => [...prev, userMsg, initialAssistantMsg]);
     setInput("");
+    if (textareaRef.current) {
+      textareaRef.current.style.height = "auto";
+    }
+    refocusInput();
     setIsLoading(true);
+    abortControllerRef.current = new AbortController();
 
     try {
       const historyForApi = [...messages, userMsg].map((m) => ({
@@ -423,6 +465,8 @@ export const ChatStudio: React.FC<ChatStudioProps> = ({
             )
           );
           setIsLoading(false);
+          abortControllerRef.current = null;
+          refocusInput();
 
           if (!sessionIdRef.current) {
             sessionIdRef.current = "chat_" + Date.now();
@@ -460,6 +504,8 @@ export const ChatStudio: React.FC<ChatStudioProps> = ({
         (err) => {
           console.error("Streaming error:", err);
           setIsLoading(false);
+          abortControllerRef.current = null;
+          refocusInput();
           setMessages((prev) =>
             prev.map((msg) =>
               msg.id === assistantId
@@ -467,11 +513,14 @@ export const ChatStudio: React.FC<ChatStudioProps> = ({
                 : msg
             )
           );
-        }
+        },
+        abortControllerRef.current.signal
       );
     } catch (err) {
       console.error(err);
       setIsLoading(false);
+      abortControllerRef.current = null;
+      refocusInput();
     }
   };
 
@@ -753,18 +802,14 @@ export const ChatStudio: React.FC<ChatStudioProps> = ({
             className="flex flex-col"
           >
             <textarea
+              ref={textareaRef}
               value={input}
-              onChange={(e) => setInput(e.target.value)}
-              onKeyDown={(e) => {
-                if (e.key === "Enter" && !e.shiftKey) {
-                  e.preventDefault();
-                  handleSend();
-                }
-              }}
+              onChange={handleInputChange}
+              onKeyDown={handleKeyDown}
               placeholder={
                 isRecording
-                  ? "🎙️ Listening... Speak any topic you want explained"
-                  : "Speak or ask any topic to explain (e.g. Speech Recognition, Photosynthesis)..."
+                  ? "Listening... Speak any topic you want explained"
+                  : "Speak or ask any topic to explain... (Enter to send, Shift+Enter for newline)"
               }
               rows={2}
               className="w-full resize-none bg-transparent outline-none text-neutral-900 placeholder-[#8e8e8e] text-[14px] sm:text-[15px] leading-relaxed mb-2 sm:mb-3 font-sans"
@@ -843,7 +888,7 @@ export const ChatStudio: React.FC<ChatStudioProps> = ({
             onClick={() => handleSend("Explain photosynthesis step-by-step with analogies and real-world examples")}
             className="p-3.5 sm:p-5 rounded-[16px] sm:rounded-[18px] bg-white border border-[#e5e5e5] hover:border-neutral-400 transition-all cursor-pointer group"
           >
-            <Sparkles className="w-4 h-4 sm:w-5 sm:h-5 text-neutral-700 mb-1.5 sm:mb-3 group-hover:text-indigo-600 transition-colors" />
+            <Sparkles className="w-4 h-4 sm:w-5 sm:h-5 text-neutral-700 mb-1.5 sm:mb-3 group-hover:text-amber-600 transition-colors" />
             <h4 className="font-semibold text-[13px] sm:text-[14px] text-neutral-900 mb-0.5 sm:mb-1">
               Interactive Learning
             </h4>
@@ -872,19 +917,15 @@ export const ChatStudio: React.FC<ChatStudioProps> = ({
 
         {/* Action Controls: Voice, Export, and New Chat */}
         <div className="flex items-center gap-1.5 sm:gap-2.5 flex-wrap justify-end">
-          {/* Feature 2: Hands-Free Voice Mode Toggle */}
+          {/* Feature 2: Live Voice Call Mode Button */}
           <button
             type="button"
-            onClick={toggleHandsFree}
-            className={`flex items-center gap-1 sm:gap-1.5 px-2.5 sm:px-3 py-1 rounded-full text-[11px] sm:text-xs font-medium transition-all ${
-              isHandsFree
-                ? "bg-emerald-600 text-white shadow-sm ring-2 ring-emerald-300 animate-pulse"
-                : "bg-[#f3f3f3] hover:bg-[#e9e9e9] text-neutral-700"
-            }`}
-            title={isHandsFree ? "Click to stop hands-free voice mode" : "Enable continuous hands-free voice mode"}
+            onClick={onStartLiveVoiceCall || toggleHandsFree}
+            className="flex items-center gap-1 sm:gap-1.5 px-2.5 sm:px-3 py-1 rounded-full text-[11px] sm:text-xs font-medium transition-all bg-amber-500/10 hover:bg-amber-500/20 text-amber-700 border border-amber-500/30 cursor-pointer"
+            title="Start live continuous two-way voice call"
           >
-            <Headphones className={`w-3.5 h-3.5 ${isHandsFree ? "text-white" : "text-neutral-600"}`} />
-            <span>{isHandsFree ? "Voice On" : "Voice"}</span>
+            <Radio className="w-3.5 h-3.5 text-amber-500 animate-pulse" />
+            <span>Live Call</span>
           </button>
 
           {/* Feature 5: Export Dropdown */}
@@ -1043,20 +1084,19 @@ export const ChatStudio: React.FC<ChatStudioProps> = ({
         <div ref={messagesEndRef} />
       </div>
 
-      {/* Docked Prompt Bar (Clean Cowork style, matching empty state) */}
+      {/* Docked Prompt Bar (Consistent ChatGPT-grade multiline with continuous focus) */}
       <div className="pt-2 sm:pt-3 pb-1 sm:pb-2 bg-white shrink-0">
         <form
           onSubmit={(e) => {
             e.preventDefault();
             handleSend();
           }}
-          className="flex items-center gap-1.5 sm:gap-2 bg-[#f4f4f4] rounded-[20px] sm:rounded-[24px] px-2.5 sm:px-3.5 py-1.5 sm:py-2.5 transition-all focus-within:ring-1 focus-within:ring-neutral-300"
+          className="flex items-end gap-1.5 sm:gap-2 bg-[#f4f4f4] rounded-[22px] sm:rounded-[26px] px-3 sm:px-4 py-1.5 sm:py-2 transition-all border border-[#eaeaea] focus-within:border-neutral-400 focus-within:ring-1 focus-within:ring-neutral-200"
         >
-
           <button
             type="button"
             onClick={toggleVoiceInput}
-            className={`p-1 sm:p-1.5 rounded-lg transition-all ${
+            className={`p-1.5 sm:p-2 rounded-xl transition-all self-end mb-0.5 ${
               isRecording
                 ? "bg-rose-500 text-white animate-pulse"
                 : "text-neutral-500 hover:text-neutral-800 hover:bg-neutral-200/50"
@@ -1066,27 +1106,45 @@ export const ChatStudio: React.FC<ChatStudioProps> = ({
             {isRecording ? <MicOff className="w-4 h-4" /> : <Mic className="w-4 h-4" />}
           </button>
 
-          <input
-            type="text"
+          <textarea
+            ref={textareaRef}
             value={input}
-            onChange={(e) => setInput(e.target.value)}
+            onChange={handleInputChange}
+            onKeyDown={handleKeyDown}
             placeholder={
               isRecording
-                ? "🎙️ Listening... Speak any topic"
-                : "Ask any topic to explain..."
+                ? "Listening... Speak any topic"
+                : "Ask anything... (Enter to send, Shift+Enter for newline)"
             }
-            className="flex-1 px-1.5 sm:px-2 py-1 bg-transparent outline-none text-neutral-900 placeholder-[#8e8e8e] text-[14px] sm:text-[15px] font-sans"
+            rows={1}
+            className="flex-1 max-h-[160px] min-h-[38px] px-1 sm:px-2 py-1.5 bg-transparent outline-none resize-none text-neutral-900 placeholder-[#8e8e8e] text-[14px] sm:text-[15px] leading-relaxed font-sans"
           />
 
-          <button
-            type="submit"
-            disabled={!input.trim() || isLoading}
-            className="w-7 h-7 sm:w-8 sm:h-8 rounded-full bg-neutral-800 hover:bg-neutral-900 disabled:bg-[#7c7c7c] text-white flex items-center justify-center transition-all disabled:cursor-not-allowed shadow-2xs shrink-0"
-            title="Send message"
-          >
-            <Send className="w-3.5 h-3.5" />
-          </button>
+          <div className="self-end mb-0.5">
+            {isLoading ? (
+              <button
+                type="button"
+                onClick={handleStopStreaming}
+                className="w-7 h-7 sm:w-8 sm:h-8 rounded-full bg-neutral-900 hover:bg-neutral-800 text-white flex items-center justify-center transition-all shadow-xs cursor-pointer"
+                title="Stop generating"
+              >
+                <Square className="w-3 h-3 fill-current" />
+              </button>
+            ) : (
+              <button
+                type="submit"
+                disabled={!input.trim()}
+                className="w-7 h-7 sm:w-8 sm:h-8 rounded-full bg-neutral-900 hover:bg-black disabled:bg-[#d0d0d0] text-white flex items-center justify-center transition-all disabled:cursor-not-allowed shadow-xs cursor-pointer"
+                title="Send message (Enter)"
+              >
+                <Send className="w-3.5 h-3.5" />
+              </button>
+            )}
+          </div>
         </form>
+        <div className="text-[11px] text-[#9a9a9a] text-center mt-1.5 font-sans">
+          AI can make mistakes. Verify important information.
+        </div>
       </div>
     </div>
   );
