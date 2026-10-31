@@ -91,7 +91,7 @@ export const Sidebar: React.FC<SidebarProps> = ({
       )}
 
       <aside
-        className={`fixed inset-y-0 left-0 z-50 md:relative md:z-30 flex flex-col bg-white border-r border-[#f0f0f0] transition-transform md:transition-all duration-300 select-none shadow-2xl md:shadow-none ${
+        className={`fixed inset-y-0 left-0 z-50 md:relative md:z-30 flex flex-col bg-white border-r border-[#f0f0f0] transition-transform md:transition-all duration-300 select-none shadow-2xl md:shadow-none pt-[max(0.25rem,env(safe-area-inset-top))] pb-[max(0.5rem,env(safe-area-inset-bottom))] ${
           mobileOpen ? "translate-x-0" : "-translate-x-full md:translate-x-0"
         } ${collapsed ? "w-72 md:w-16" : "w-72 md:w-64"}`}
       >
@@ -110,8 +110,8 @@ export const Sidebar: React.FC<SidebarProps> = ({
               <span className="font-semibold text-[15.5px] text-neutral-900 tracking-tight font-sans leading-tight">
                 Voxify AI
               </span>
-              <span className="text-[10px] text-neutral-400 font-mono font-medium tracking-wider uppercase">
-                Studio
+              <span className="text-[10px] text-neutral-400 font-mono font-medium">
+                studio
               </span>
             </div>
           </div>
@@ -183,8 +183,8 @@ export const Sidebar: React.FC<SidebarProps> = ({
       {/* Recent Chats Section: Invisible Scrollbar */}
       <div className="flex-1 px-2 overflow-y-auto no-scrollbar space-y-0.5 [scrollbar-width:none] [-ms-overflow-style:none] [&::-webkit-scrollbar]:hidden">
         {(!collapsed || mobileOpen) && savedSessions.length > 0 && (
-          <div className={`px-3 py-1.5 text-[11px] font-semibold text-neutral-400 uppercase tracking-wider ${collapsed ? "md:hidden" : ""}`}>
-            Recent Chats
+          <div className={`px-3 py-1.5 text-xs font-medium text-neutral-400 ${collapsed ? "md:hidden" : ""}`}>
+            Recent chats
           </div>
         )}
 

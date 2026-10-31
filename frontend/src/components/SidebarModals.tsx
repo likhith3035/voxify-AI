@@ -165,11 +165,11 @@ export const SidebarModals: React.FC<SidebarModalsProps> = ({
 
   return (
     <div
-      className="fixed inset-0 z-50 flex items-center justify-center p-2 sm:p-6 bg-black/30 backdrop-blur-[6px] transition-all animate-in fade-in duration-200"
+      className="fixed inset-0 z-50 flex items-end sm:items-center justify-center p-0 sm:p-6 bg-black/40 backdrop-blur-[6px] transition-all animate-in fade-in duration-200 pb-[env(safe-area-inset-bottom)]"
       onClick={onClose}
     >
       <div
-        className="relative w-full max-w-[620px] bg-white rounded-[22px] sm:rounded-[28px] border border-[#e5e5e5] shadow-[0_24px_64px_-12px_rgba(0,0,0,0.14)] overflow-hidden flex flex-col max-h-[92dvh] sm:max-h-[85vh] animate-in zoom-in-95 duration-200 font-sans"
+        className="relative w-full max-w-[620px] bg-white rounded-t-[28px] sm:rounded-[28px] border-t sm:border border-[#e5e5e5] shadow-[0_24px_64px_-12px_rgba(0,0,0,0.14)] overflow-hidden flex flex-col max-h-[90dvh] sm:max-h-[85vh] animate-in slide-in-from-bottom sm:zoom-in-95 duration-200 font-sans"
         onClick={(e) => e.stopPropagation()}
       >
         {/* ========================================================= */}
@@ -185,17 +185,17 @@ export const SidebarModals: React.FC<SidebarModalsProps> = ({
                 onChange={(e) => setSearchQuery(e.target.value)}
                 placeholder="Search conversations, topics, or ask an explanation..."
                 autoFocus
-                className="flex-1 bg-transparent text-[14px] sm:text-[15px] outline-none text-neutral-900 placeholder-[#8e8e8e] font-sans"
+                className="flex-1 bg-transparent text-[16px] sm:text-[15px] outline-none text-neutral-900 placeholder-[#8e8e8e] font-sans"
               />
               <kbd className="hidden sm:inline-block text-[10px] font-mono text-neutral-400 bg-[#f4f4f4] px-1.5 py-0.5 rounded border border-neutral-200">
                 ESC
               </kbd>
               <button
                 onClick={onClose}
-                className="w-7 h-7 rounded-full bg-[#f4f4f4] hover:bg-[#eaeaea] text-neutral-500 hover:text-neutral-900 flex items-center justify-center transition-colors"
+                className="w-9 h-9 sm:w-7 sm:h-7 rounded-full bg-[#f4f4f4] hover:bg-[#eaeaea] text-neutral-500 hover:text-neutral-900 flex items-center justify-center transition-colors cursor-pointer"
                 title="Close"
               >
-                <X className="w-3.5 h-3.5" />
+                <X className="w-4 h-4 sm:w-3.5 sm:h-3.5" />
               </button>
             </div>
 
@@ -296,7 +296,7 @@ export const SidebarModals: React.FC<SidebarModalsProps> = ({
         {activeModal === "connectors" && (
           <div className="flex flex-col h-full">
             {/* Header */}
-            <div className="px-6 py-4.5 border-b border-[#f0f0f0] flex items-center justify-between">
+            <div className="px-4 sm:px-6 py-3.5 sm:py-4.5 border-b border-[#f0f0f0] flex items-center justify-between">
               <div className="flex items-center gap-3">
                 <div className="w-8 h-8 rounded-xl bg-[#f4f4f4] text-neutral-700 flex items-center justify-center">
                   <Cable className="w-4 h-4" />
@@ -312,14 +312,14 @@ export const SidebarModals: React.FC<SidebarModalsProps> = ({
               </div>
               <button
                 onClick={onClose}
-                className="w-8 h-8 rounded-full bg-[#f4f4f4] hover:bg-[#eaeaea] text-neutral-500 hover:text-neutral-900 flex items-center justify-center transition-colors"
+                className="w-9 h-9 sm:w-8 sm:h-8 rounded-full bg-[#f4f4f4] hover:bg-[#eaeaea] text-neutral-500 hover:text-neutral-900 flex items-center justify-center transition-colors cursor-pointer"
                 title="Close (Esc)"
               >
                 <X className="w-4 h-4" />
               </button>
             </div>
 
-            <div className="flex-1 overflow-y-auto p-6 space-y-4 text-left text-xs">
+            <div className="flex-1 overflow-y-auto p-4 sm:p-6 space-y-4 text-left text-xs">
               {/* Live AI Model Activator (Clean Segmented Box) */}
               <div className="p-5 rounded-[22px] bg-[#f8f8f8] border border-neutral-200/70">
                 <div className="flex items-start justify-between mb-1.5">
@@ -516,7 +516,7 @@ export const SidebarModals: React.FC<SidebarModalsProps> = ({
         {/* ========================================================= */}
         {activeModal === "skills" && (
           <div className="flex flex-col h-full">
-            <div className="px-6 py-4.5 border-b border-[#f0f0f0] flex items-center justify-between">
+            <div className="px-4 sm:px-6 py-3.5 sm:py-4.5 border-b border-[#f0f0f0] flex items-center justify-between">
               <div className="flex items-center gap-3">
                 <div className="w-8 h-8 rounded-xl bg-[#f4f4f4] text-neutral-700 flex items-center justify-center">
                   <Wand2 className="w-4 h-4" />
@@ -532,14 +532,14 @@ export const SidebarModals: React.FC<SidebarModalsProps> = ({
               </div>
               <button
                 onClick={onClose}
-                className="w-8 h-8 rounded-full bg-[#f4f4f4] hover:bg-[#eaeaea] text-neutral-500 hover:text-neutral-900 flex items-center justify-center transition-colors"
+                className="w-9 h-9 sm:w-8 sm:h-8 rounded-full bg-[#f4f4f4] hover:bg-[#eaeaea] text-neutral-500 hover:text-neutral-900 flex items-center justify-center transition-colors cursor-pointer"
                 title="Close"
               >
                 <X className="w-4 h-4" />
               </button>
             </div>
 
-            <div className="flex-1 overflow-y-auto p-6 space-y-3.5 text-left text-xs">
+            <div className="flex-1 overflow-y-auto p-4 sm:p-6 space-y-3.5 text-left text-xs">
               {[
                 {
                   title: "Speech to Explanation",
@@ -619,7 +619,7 @@ export const SidebarModals: React.FC<SidebarModalsProps> = ({
         {/* ========================================================= */}
         {activeModal === "agents" && (
           <div className="flex flex-col h-full">
-            <div className="px-6 py-4.5 border-b border-[#f0f0f0] flex items-center justify-between">
+            <div className="px-4 sm:px-6 py-3.5 sm:py-4.5 border-b border-[#f0f0f0] flex items-center justify-between">
               <div className="flex items-center gap-3">
                 <div className="w-8 h-8 rounded-xl bg-[#f4f4f4] text-neutral-700 flex items-center justify-center">
                   <Users2 className="w-4 h-4" />
@@ -635,14 +635,14 @@ export const SidebarModals: React.FC<SidebarModalsProps> = ({
               </div>
               <button
                 onClick={onClose}
-                className="w-8 h-8 rounded-full bg-[#f4f4f4] hover:bg-[#eaeaea] text-neutral-500 hover:text-neutral-900 flex items-center justify-center transition-colors"
+                className="w-9 h-9 sm:w-8 sm:h-8 rounded-full bg-[#f4f4f4] hover:bg-[#eaeaea] text-neutral-500 hover:text-neutral-900 flex items-center justify-center transition-colors cursor-pointer"
                 title="Close"
               >
                 <X className="w-4 h-4" />
               </button>
             </div>
 
-            <div className="flex-1 overflow-y-auto p-6 space-y-3 text-left text-xs">
+            <div className="flex-1 overflow-y-auto p-4 sm:p-6 space-y-3 text-left text-xs">
               {[
                 {
                   name: "Agent (Default)",
@@ -705,7 +705,7 @@ export const SidebarModals: React.FC<SidebarModalsProps> = ({
         {/* ========================================================= */}
         {activeModal === "scheduled" && (
           <div className="flex flex-col h-full">
-            <div className="px-6 py-4.5 border-b border-[#f0f0f0] flex items-center justify-between">
+            <div className="px-4 sm:px-6 py-3.5 sm:py-4.5 border-b border-[#f0f0f0] flex items-center justify-between">
               <div className="flex items-center gap-3">
                 <div className="w-8 h-8 rounded-xl bg-[#f4f4f4] text-neutral-700 flex items-center justify-center">
                   <Clock className="w-4 h-4" />
@@ -721,14 +721,14 @@ export const SidebarModals: React.FC<SidebarModalsProps> = ({
               </div>
               <button
                 onClick={onClose}
-                className="w-8 h-8 rounded-full bg-[#f4f4f4] hover:bg-[#eaeaea] text-neutral-500 hover:text-neutral-900 flex items-center justify-center transition-colors"
+                className="w-9 h-9 sm:w-8 sm:h-8 rounded-full bg-[#f4f4f4] hover:bg-[#eaeaea] text-neutral-500 hover:text-neutral-900 flex items-center justify-center transition-colors cursor-pointer"
                 title="Close"
               >
                 <X className="w-4 h-4" />
               </button>
             </div>
 
-            <div className="flex-1 overflow-y-auto p-6 space-y-4 text-left text-xs">
+            <div className="flex-1 overflow-y-auto p-4 sm:p-6 space-y-4 text-left text-xs">
               <div className="space-y-2.5">
                 {scheduledTasks.map((t) => (
                   <div
@@ -741,10 +741,10 @@ export const SidebarModals: React.FC<SidebarModalsProps> = ({
                         className={`w-5 h-5 rounded-full border flex items-center justify-center transition-colors ${
                           t.active
                             ? "bg-neutral-900 border-neutral-900 text-white"
-                            : "border-neutral-300 text-transparent"
+                            : "border-neutral-300"
                         }`}
                       >
-                        <Check className="w-3 h-3" />
+                        {t.active ? <Check className="w-3 h-3 text-white" /> : null}
                       </button>
                       <div>
                         <h4
@@ -798,7 +798,7 @@ export const SidebarModals: React.FC<SidebarModalsProps> = ({
         {/* ========================================================= */}
         {activeModal === "knowledge" && (
           <div className="flex flex-col h-full">
-            <div className="px-6 py-4.5 border-b border-[#f0f0f0] flex items-center justify-between">
+            <div className="px-4 sm:px-6 py-3.5 sm:py-4.5 border-b border-[#f0f0f0] flex items-center justify-between">
               <div className="flex items-center gap-3">
                 <div className="w-8 h-8 rounded-xl bg-[#f4f4f4] text-neutral-700 flex items-center justify-center">
                   <BookOpen className="w-4 h-4" />
@@ -814,14 +814,14 @@ export const SidebarModals: React.FC<SidebarModalsProps> = ({
               </div>
               <button
                 onClick={onClose}
-                className="w-8 h-8 rounded-full bg-[#f4f4f4] hover:bg-[#eaeaea] text-neutral-500 hover:text-neutral-900 flex items-center justify-center transition-colors"
+                className="w-9 h-9 sm:w-8 sm:h-8 rounded-full bg-[#f4f4f4] hover:bg-[#eaeaea] text-neutral-500 hover:text-neutral-900 flex items-center justify-center transition-colors cursor-pointer"
                 title="Close"
               >
                 <X className="w-4 h-4" />
               </button>
             </div>
 
-            <div className="flex-1 overflow-y-auto p-6 space-y-3.5 text-left text-xs">
+            <div className="flex-1 overflow-y-auto p-4 sm:p-6 space-y-3.5 text-left text-xs">
               {savedSessions.length === 0 ? (
                 <div className="text-center py-12 text-neutral-400">
                   <div className="w-12 h-12 rounded-2xl bg-[#f4f4f4] text-neutral-400 flex items-center justify-center mx-auto mb-3">

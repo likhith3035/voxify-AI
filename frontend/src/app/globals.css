@@ -37,3 +37,19 @@
   width: 0px;
   height: 0px;
 }
+
+/* Safe area padding utilities for mobile notch and home indicator bar */
+.safe-pb {
+  padding-bottom: max(1rem, env(safe-area-inset-bottom));
+}
+
+.safe-pt {
+  padding-top: max(0.75rem, env(safe-area-inset-top));
+}
+
+/* Prevent iOS Safari aggressive auto-zoom on input focus */
+@media (max-width: 640px) {
+  input, textarea, select {
+    font-size: 16px !important;
+  }
+}

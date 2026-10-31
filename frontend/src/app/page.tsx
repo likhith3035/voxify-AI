@@ -7,6 +7,7 @@ import { SidebarModals, SidebarModalType } from "../components/SidebarModals";
 import { LiveVoiceAgent } from "../components/LiveVoiceAgent";
 import { checkBackendHealth } from "../lib/api";
 import { SavedSession } from "../types";
+import { unlockMobileAudio } from "../lib/mobile-audio";
 import { Menu, Plus, Bot, Radio } from "lucide-react";
 
 function ChatAppContent() {
@@ -134,11 +135,11 @@ function ChatAppContent() {
       {/* 2. Main AI Chatbot Workspace (Full-Screen Cowork Interface) */}
       <div className="flex-1 flex flex-col h-full overflow-hidden relative bg-white">
         {/* Sticky Mobile Header (Visible only on mobile screens < 768px) */}
-        <header className="md:hidden flex items-center justify-between px-3.5 py-2.5 bg-white/95 backdrop-blur-md border-b border-neutral-100 shrink-0 z-20">
+        <header className="md:hidden flex items-center justify-between px-3 py-2 bg-white/95 backdrop-blur-md border-b border-neutral-100 shrink-0 z-20">
           <button
             type="button"
             onClick={() => setMobileMenuOpen(true)}
-            className="p-1.5 -ml-1 rounded-xl text-neutral-700 hover:text-neutral-900 hover:bg-neutral-100 active:bg-neutral-200 transition-colors cursor-pointer"
+            className="w-11 h-11 rounded-xl text-neutral-700 hover:text-neutral-900 hover:bg-neutral-100 active:bg-neutral-200 transition-colors cursor-pointer flex items-center justify-center"
             aria-label="Open navigation menu"
             title="Open navigation menu"
           >
@@ -152,25 +153,28 @@ function ChatAppContent() {
             <span className="font-semibold text-sm text-neutral-900 tracking-tight font-sans">
               Voxify AI
             </span>
-            <span className="text-[10px] text-neutral-400 font-mono font-medium tracking-wider uppercase">
-              Studio
+            <span className="text-xs text-neutral-400 font-mono font-medium">
+              studio
             </span>
           </div>
 
           <div className="flex items-center gap-1">
             <button
               type="button"
-              onClick={() => setVoiceCallOpen(true)}
-              className="p-1.5 rounded-xl text-neutral-700 hover:text-neutral-900 hover:bg-neutral-100 transition-colors cursor-pointer"
+              onClick={() => {
+                unlockMobileAudio();
+                setVoiceCallOpen(true);
+              }}
+              className="w-11 h-11 rounded-xl text-neutral-700 hover:text-neutral-900 hover:bg-neutral-100 transition-colors cursor-pointer flex items-center justify-center"
               aria-label="Call Voxify"
               title="Call Voxify (Live Voice Call)"
             >
-              <Radio className="w-4 h-4 text-amber-500" />
+              <Radio className="w-4 h-4 text-amber-500 animate-pulse" />
             </button>
             <button
               type="button"
               onClick={handleNewChat}
-              className="p-1.5 -mr-1 rounded-xl text-neutral-700 hover:text-neutral-900 hover:bg-neutral-100 active:bg-neutral-200 transition-colors cursor-pointer"
+              className="w-11 h-11 rounded-xl text-neutral-700 hover:text-neutral-900 hover:bg-neutral-100 active:bg-neutral-200 transition-colors cursor-pointer flex items-center justify-center"
               aria-label="New chat"
               title="New chat"
             >
@@ -190,8 +194,11 @@ function ChatAppContent() {
           <div className="flex items-center gap-2.5">
             <button
               type="button"
-              onClick={() => setVoiceCallOpen(true)}
-              className="flex items-center gap-2 px-3.5 py-1.5 rounded-full bg-neutral-900 hover:bg-neutral-800 text-white text-xs font-medium shadow-xs transition-colors cursor-pointer"
+              onClick={() => {
+                unlockMobileAudio();
+                setVoiceCallOpen(true);
+              }}
+              className="flex items-center gap-2 px-3.5 py-1.5 rounded-full bg-neutral-900 hover:bg-neutral-800 text-white text-xs font-medium shadow-xs transition-colors cursor-pointer min-h-[36px]"
               title="Call Voxify: live continuous two-way voice partner"
             >
               <Radio className="w-3.5 h-3.5 text-amber-400 animate-pulse" />

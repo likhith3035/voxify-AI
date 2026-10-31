@@ -26,7 +26,8 @@ import {
   Square
 } from "lucide-react";
 import { ChatMessage, SavedSession, ActiveTab } from "../types";
-import { apiSendChatMessage, apiStreamChatMessage } from "../lib/api";
+import { apiSendChatMessage, apiStreamChatMessage, apiTranscribeAudio } from "../lib/api";
+import { isMobileDevice, unlockMobileAudio } from "../lib/mobile-audio";
 
 interface ChatStudioProps {
   initialPrompt?: string;
@@ -59,6 +60,7 @@ export const ChatStudio: React.FC<ChatStudioProps> = ({
   const [input, setInput] = useState("");
   const [isLoading, setIsLoading] = useState(false);
   const [isRecording, setIsRecording] = useState(false);
+  const [isTranscribing, setIsTranscribing] = useState(false);
   const [copiedId, setCopiedId] = useState<string | null>(null);
   const [copiedCodeIndex, setCopiedCodeIndex] = useState<number | null>(null);
   const [speakingId, setSpeakingId] = useState<string | null>(null);
@@ -74,6 +76,8 @@ export const ChatStudio: React.FC<ChatStudioProps> = ({
 
   const messagesEndRef = useRef<HTMLDivElement | null>(null);
   const recognitionRef = useRef<any>(null);
+  const mediaRecorderRef = useRef<MediaRecorder | null>(null);
+  const audioChunksRef = useRef<Blob[]>([]);
   const baseInputRef = useRef("");
   const textareaRef = useRef<HTMLTextAreaElement | null>(null);
   const abortControllerRef = useRef<AbortController | null>(null);
@@ -149,74 +153,143 @@ export const ChatStudio: React.FC<ChatStudioProps> = ({
     }
   }, [initialPrompt]);
 
-  const toggleVoiceInput = () => {
+  const toggleVoiceInput = async () => {
+    unlockMobileAudio();
+
+    // If currently recording via MediaRecorder, stop and transcribe
+    if (mediaRecorderRef.current && mediaRecorderRef.current.state === "recording") {
+      mediaRecorderRef.current.stop();
+      setIsRecording(false);
+      return;
+    }
+
+    // If currently recording via SpeechRecognition, stop
+    if (recognitionRef.current && isRecording) {
+      try { recognitionRef.current.stop(); } catch (_) {}
+      setIsRecording(false);
+      baseInputRef.current = "";
+      return;
+    }
+
     const win = typeof window !== "undefined" ? (window as any) : null;
     const SpeechRec = win?.SpeechRecognition || win?.webkitSpeechRecognition;
 
-    if (!SpeechRec) {
-      alert("Speech recognition is not supported in this browser. Please use Google Chrome or Microsoft Edge.");
-      return;
-    }
+    // Desktop Chrome/Edge: Native Web Speech API
+    if (SpeechRec && !isMobileDevice()) {
+      try {
+        const rec = new SpeechRec();
+        rec.continuous = true;
+        rec.interimResults = true;
+        rec.maxAlternatives = 1;
+        rec.lang = (typeof navigator !== "undefined" && navigator.language) || "en-US";
 
-    if (isRecording) {
-      if (recognitionRef.current) {
-        try { recognitionRef.current.stop(); } catch (_) {}
-      }
-      setIsRecording(false);
-      baseInputRef.current = "";
-      return;
-    }
+        baseInputRef.current = input.trim();
 
-    try {
-      const rec = new SpeechRec();
-      rec.continuous = true;
-      rec.interimResults = true;
-      rec.maxAlternatives = 1;
-      rec.lang = (typeof navigator !== "undefined" && navigator.language) || "en-US";
+        rec.onstart = () => {
+          setIsRecording(true);
+        };
 
-      baseInputRef.current = input.trim();
+        rec.onresult = (event: any) => {
+          let finalStr = "";
+          let interimStr = "";
 
-      rec.onstart = () => {
-        setIsRecording(true);
-      };
-
-      rec.onresult = (event: any) => {
-        let finalStr = "";
-        let interimStr = "";
-
-        for (let i = 0; i < event.results.length; i++) {
-          const res = event.results[i];
-          const text = res[0].transcript;
-          if (res.isFinal) {
-            finalStr += text + " ";
-          } else {
-            interimStr += text;
+          for (let i = 0; i < event.results.length; i++) {
+            const res = event.results[i];
+            const text = res[0].transcript;
+            if (res.isFinal) {
+              finalStr += text + " ";
+            } else {
+              interimStr += text;
+            }
           }
+
+          const base = baseInputRef.current ? baseInputRef.current + " " : "";
+          const combined = `${base}${finalStr}${interimStr}`.replace(/\s+/g, " ").trim();
+          setInput(combined);
+        };
+
+        rec.onerror = (e: any) => {
+          if (e.error !== "no-speech" && e.error !== "aborted") {
+            console.warn("Speech recognition error:", e.error);
+          }
+          setIsRecording(false);
+          baseInputRef.current = "";
+        };
+
+        rec.onend = () => {
+          setIsRecording(false);
+          baseInputRef.current = "";
+        };
+
+        recognitionRef.current = rec;
+        rec.start();
+        return;
+      } catch (e) {
+        console.warn("SpeechRec failed, falling back to MediaRecorder", e);
+      }
+    }
+
+    // Mobile fallback (iOS Safari, Android) or browser without SpeechRecognition: MediaRecorder + Groq Whisper
+    try {
+      if (!navigator.mediaDevices || !navigator.mediaDevices.getUserMedia) {
+        alert("Microphone access is not supported on this browser.");
+        return;
+      }
+
+      const stream = await navigator.mediaDevices.getUserMedia({ audio: true });
+      audioChunksRef.current = [];
+
+      let mimeType = "";
+      if (typeof MediaRecorder !== "undefined") {
+        if (MediaRecorder.isTypeSupported("audio/webm;codecs=opus")) {
+          mimeType = "audio/webm;codecs=opus";
+        } else if (MediaRecorder.isTypeSupported("audio/mp4")) {
+          mimeType = "audio/mp4";
+        } else if (MediaRecorder.isTypeSupported("audio/webm")) {
+          mimeType = "audio/webm";
         }
+      }
 
-        const base = baseInputRef.current ? baseInputRef.current + " " : "";
-        const combined = `${base}${finalStr}${interimStr}`.replace(/\s+/g, " ").trim();
-        setInput(combined);
-      };
+      const recorder = mimeType ? new MediaRecorder(stream, { mimeType }) : new MediaRecorder(stream);
+      mediaRecorderRef.current = recorder;
 
-      rec.onerror = (e: any) => {
-        if (e.error !== "no-speech" && e.error !== "aborted") {
-          console.warn("Speech recognition error:", e.error);
+      recorder.ondataavailable = (event) => {
+        if (event.data && event.data.size > 0) {
+          audioChunksRef.current.push(event.data);
         }
-        setIsRecording(false);
-        baseInputRef.current = "";
       };
 
-      rec.onend = () => {
+      recorder.onstop = async () => {
+        stream.getTracks().forEach((track) => track.stop());
         setIsRecording(false);
-        baseInputRef.current = "";
+
+        if (audioChunksRef.current.length === 0) return;
+
+        const audioBlob = new Blob(audioChunksRef.current, { type: mimeType || "audio/webm" });
+        setIsTranscribing(true);
+
+        try {
+          const res = await apiTranscribeAudio(audioBlob);
+          if (res.text && res.text.trim()) {
+            setInput((prev) => {
+              const base = prev.trim();
+              return base ? `${base} ${res.text.trim()}` : res.text.trim();
+            });
+          }
+        } catch (err: any) {
+          console.error("Transcription error:", err);
+        } finally {
+          setIsTranscribing(false);
+          refocusInput();
+        }
       };
 
-      recognitionRef.current = rec;
-      rec.start();
-    } catch (e) {
+      recorder.start(250);
+      setIsRecording(true);
+    } catch (err: any) {
+      console.error("MediaRecorder start error:", err);
       setIsRecording(false);
-      baseInputRef.current = "";
+      alert("Could not access microphone: " + (err?.message || "Permission denied"));
     }
   };
 
@@ -533,7 +606,12 @@ export const ChatStudio: React.FC<ChatStudioProps> = ({
       return;
     }
 
+    unlockMobileAudio();
     window.speechSynthesis.cancel();
+    if (window.speechSynthesis.paused) {
+      window.speechSynthesis.resume();
+    }
+
     const cleanText = text.replace(/[#*`_]/g, "");
     const utterance = new SpeechSynthesisUtterance(cleanText);
     utterance.rate = 1.0;
@@ -1085,7 +1163,7 @@ export const ChatStudio: React.FC<ChatStudioProps> = ({
       </div>
 
       {/* Docked Prompt Bar (Consistent ChatGPT-grade multiline with continuous focus) */}
-      <div className="pt-2 sm:pt-3 pb-1 sm:pb-2 bg-white shrink-0">
+      <div className="pt-2 sm:pt-3 pb-[max(0.5rem,env(safe-area-inset-bottom))] bg-white shrink-0">
         <form
           onSubmit={(e) => {
             e.preventDefault();
@@ -1096,14 +1174,29 @@ export const ChatStudio: React.FC<ChatStudioProps> = ({
           <button
             type="button"
             onClick={toggleVoiceInput}
-            className={`p-1.5 sm:p-2 rounded-xl transition-all self-end mb-0.5 ${
+            disabled={isTranscribing}
+            className={`min-h-[40px] min-w-[40px] p-2 rounded-xl transition-all self-end mb-0.5 flex items-center justify-center cursor-pointer ${
               isRecording
                 ? "bg-rose-500 text-white animate-pulse"
+                : isTranscribing
+                ? "bg-amber-100 text-amber-700 animate-pulse"
                 : "text-neutral-500 hover:text-neutral-800 hover:bg-neutral-200/50"
             }`}
-            title={isRecording ? "Listening... click to stop" : "Voice dictation"}
+            title={
+              isRecording
+                ? "Listening... Tap to stop and send"
+                : isTranscribing
+                ? "Transcribing with Groq Whisper..."
+                : "Voice dictation"
+            }
           >
-            {isRecording ? <MicOff className="w-4 h-4" /> : <Mic className="w-4 h-4" />}
+            {isTranscribing ? (
+              <RefreshCw className="w-4 h-4 animate-spin text-amber-700" />
+            ) : isRecording ? (
+              <MicOff className="w-4 h-4" />
+            ) : (
+              <Mic className="w-4 h-4" />
+            )}
           </button>
 
           <textarea
@@ -1112,12 +1205,14 @@ export const ChatStudio: React.FC<ChatStudioProps> = ({
             onChange={handleInputChange}
             onKeyDown={handleKeyDown}
             placeholder={
-              isRecording
-                ? "Listening... Speak any topic"
+              isTranscribing
+                ? "Transcribing your voice with Groq Whisper..."
+                : isRecording
+                ? "Listening... Tap mic again to finish"
                 : "Ask anything... (Enter to send, Shift+Enter for newline)"
             }
             rows={1}
-            className="flex-1 max-h-[160px] min-h-[38px] px-1 sm:px-2 py-1.5 bg-transparent outline-none resize-none text-neutral-900 placeholder-[#8e8e8e] text-[14px] sm:text-[15px] leading-relaxed font-sans"
+            className="flex-1 max-h-[160px] min-h-[38px] px-1 sm:px-2 py-1.5 bg-transparent outline-none resize-none text-neutral-900 placeholder-[#8e8e8e] text-[16px] sm:text-[15px] leading-relaxed font-sans"
           />
 
           <div className="self-end mb-0.5">
@@ -1125,7 +1220,7 @@ export const ChatStudio: React.FC<ChatStudioProps> = ({
               <button
                 type="button"
                 onClick={handleStopStreaming}
-                className="w-7 h-7 sm:w-8 sm:h-8 rounded-full bg-neutral-900 hover:bg-neutral-800 text-white flex items-center justify-center transition-all shadow-xs cursor-pointer"
+                className="w-8 h-8 rounded-full bg-neutral-900 hover:bg-neutral-800 text-white flex items-center justify-center transition-all shadow-xs cursor-pointer"
                 title="Stop generating"
               >
                 <Square className="w-3 h-3 fill-current" />
@@ -1134,7 +1229,7 @@ export const ChatStudio: React.FC<ChatStudioProps> = ({
               <button
                 type="submit"
                 disabled={!input.trim()}
-                className="w-7 h-7 sm:w-8 sm:h-8 rounded-full bg-neutral-900 hover:bg-black disabled:bg-[#d0d0d0] text-white flex items-center justify-center transition-all disabled:cursor-not-allowed shadow-xs cursor-pointer"
+                className="w-8 h-8 rounded-full bg-neutral-900 hover:bg-black disabled:bg-[#d0d0d0] text-white flex items-center justify-center transition-all disabled:cursor-not-allowed shadow-xs cursor-pointer"
                 title="Send message (Enter)"
               >
                 <Send className="w-3.5 h-3.5" />
@@ -1143,7 +1238,11 @@ export const ChatStudio: React.FC<ChatStudioProps> = ({
           </div>
         </form>
         <div className="text-[11px] text-[#9a9a9a] text-center mt-1.5 font-sans">
-          AI can make mistakes. Verify important information.
+          {isTranscribing ? (
+            <span className="text-amber-600 font-medium">Processing audio with Whisper AI...</span>
+          ) : (
+            "AI can make mistakes. Verify important information."
+          )}
         </div>
       </div>
     </div>

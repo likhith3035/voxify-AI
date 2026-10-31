@@ -13,6 +13,25 @@ export async function checkBackendHealth() {
   }
 }
 
+export async function apiTranscribeAudio(blob: Blob): Promise<{ text: string; engine?: string }> {
+  try {
+    const formData = new FormData();
+    formData.append("audio", blob, "recording.webm");
+
+    const res = await fetch(`${BACKEND_URL}/api/transcribe`, {
+      method: "POST",
+      body: formData,
+    });
+
+    if (res.ok) {
+      return await res.json();
+    }
+  } catch (err) {
+    console.warn("apiTranscribeAudio failed:", err);
+  }
+  return { text: "", engine: "None" };
+}
+
 export async function apiSendChatMessage(
   messages: { role: string; content: string }[],
   prompt?: string

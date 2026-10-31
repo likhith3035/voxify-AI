@@ -22,6 +22,7 @@ import {
   Send,
 } from "lucide-react";
 import { apiStreamChatMessage } from "../lib/api";
+import { isMobileDevice, unlockMobileAudio, getAvailableVoices } from "../lib/mobile-audio";
 
 interface LiveVoiceAgentProps {
   isOpen: boolean;
@@ -73,6 +74,7 @@ export const LiveVoiceAgent: React.FC<LiveVoiceAgentProps> = ({
   const hasPermissionErrorRef = useRef<boolean>(false);
   const speechQueueRef = useRef<string[]>([]);
   const isPlayingQueueRef = useRef<boolean>(false);
+  const activeUtteranceRef = useRef<SpeechSynthesisUtterance | null>(null);
 
   useEffect(() => {
     isMutedRef.current = isMuted;
@@ -95,6 +97,9 @@ export const LiveVoiceAgent: React.FC<LiveVoiceAgentProps> = ({
       hasPermissionErrorRef.current = false;
       setMicError(null);
 
+      // Prime audio subsystem on mobile (unlocks iOS Safari / Android Chrome silent policy)
+      unlockMobileAudio();
+
       try {
         const stream = await navigator.mediaDevices.getUserMedia({ audio: true });
         micStreamRef.current = stream;
@@ -102,6 +107,7 @@ export const LiveVoiceAgent: React.FC<LiveVoiceAgentProps> = ({
         const AudioCtx = window.AudioContext || (window as any).webkitAudioContext;
         const ctx = new AudioCtx();
         audioContextRef.current = ctx;
+        unlockMobileAudio(ctx);
 
         const analyser = ctx.createAnalyser();
         analyser.fftSize = 64;
@@ -127,6 +133,9 @@ export const LiveVoiceAgent: React.FC<LiveVoiceAgentProps> = ({
       } else {
         setAgentState("muted");
       }
+
+      // Prewarm voices for mobile browsers
+      await getAvailableVoices();
 
       // Initial spoken greeting from Voxify
       const greeting =
@@ -296,6 +305,8 @@ export const LiveVoiceAgent: React.FC<LiveVoiceAgentProps> = ({
     const SpeechRec = win?.SpeechRecognition || win?.webkitSpeechRecognition;
     if (!SpeechRec) return;
 
+    const isMobile = isMobileDevice();
+
     try {
       if (recognitionRef.current) {
         try {
@@ -304,7 +315,8 @@ export const LiveVoiceAgent: React.FC<LiveVoiceAgentProps> = ({
       }
 
       const rec = new SpeechRec();
-      rec.continuous = true;
+      // On mobile browsers, continuous mode triggers frequent crashes or unprompted stops
+      rec.continuous = !isMobile;
       rec.interimResults = true;
       rec.lang = selectedLang;
 
@@ -335,11 +347,12 @@ export const LiveVoiceAgent: React.FC<LiveVoiceAgentProps> = ({
 
           // Reset silence timer on every new speech event
           if (silenceTimerRef.current) clearTimeout(silenceTimerRef.current);
+          const silenceWaitMs = isMobile ? 850 : 1100;
           silenceTimerRef.current = setTimeout(() => {
             if (currentSpoken.trim().length > 1) {
               handleUserSpoke(currentSpoken);
             }
-          }, 1100);
+          }, silenceWaitMs);
         }
       };
 
@@ -357,7 +370,7 @@ export const LiveVoiceAgent: React.FC<LiveVoiceAgentProps> = ({
 
       rec.onend = () => {
         if (hasPermissionErrorRef.current) return;
-        // Auto-restart listening if not currently speaking
+        // Auto-restart listening if not currently speaking or thinking
         if (!isAgentSpeakingRef.current && !isMutedRef.current && isOpen) {
           try {
             rec.start();
@@ -498,7 +511,7 @@ CRITICAL INSTRUCTIONS FOR VOICE:
     });
   };
 
-  const speakSentence = (text: string, onEnd: () => void) => {
+  const speakSentence = async (text: string, onEnd: () => void) => {
     if (typeof window === "undefined" || !("speechSynthesis" in window)) {
       onEnd();
       return;
@@ -510,36 +523,53 @@ CRITICAL INSTRUCTIONS FOR VOICE:
       return;
     }
 
-    window.speechSynthesis.cancel();
-    const utterance = new SpeechSynthesisUtterance(clean);
-    utterance.rate = 1.08;
-    utterance.lang = selectedLang;
+    try {
+      window.speechSynthesis.cancel();
+      if (window.speechSynthesis.paused) {
+        window.speechSynthesis.resume();
+      }
 
-    // Pick a natural voice if available
-    const voices = window.speechSynthesis.getVoices();
-    const matchingVoice =
-      voices.find((v) => v.lang === selectedLang && (v.name.includes("Google") || v.name.includes("Natural") || v.name.includes("Neural"))) ||
-      voices.find((v) => v.lang.startsWith(selectedLang.split("-")[0]));
+      const utterance = new SpeechSynthesisUtterance(clean);
+      utterance.rate = 1.08;
+      utterance.lang = selectedLang;
+      activeUtteranceRef.current = utterance;
 
-    if (matchingVoice) {
-      utterance.voice = matchingVoice;
+      // Pick a natural voice if available
+      const voices = await getAvailableVoices();
+      const matchingVoice =
+        voices.find((v) => v.lang === selectedLang && (v.name.includes("Google") || v.name.includes("Natural") || v.name.includes("Neural"))) ||
+        voices.find((v) => v.lang.startsWith(selectedLang.split("-")[0]));
+
+      if (matchingVoice) {
+        utterance.voice = matchingVoice;
+      }
+
+      let ended = false;
+      const finish = () => {
+        if (!ended) {
+          ended = true;
+          activeUtteranceRef.current = null;
+          onEnd();
+        }
+      };
+
+      utterance.onend = finish;
+      utterance.onerror = finish;
+
+      window.speechSynthesis.speak(utterance);
+    } catch (e) {
+      console.warn("Speech synthesis error:", e);
+      onEnd();
     }
-
-    utterance.onend = () => {
-      onEnd();
-    };
-
-    utterance.onerror = () => {
-      onEnd();
-    };
-
-    window.speechSynthesis.speak(utterance);
   };
 
   const stopAgentSpeech = () => {
     if (typeof window !== "undefined" && "speechSynthesis" in window) {
-      window.speechSynthesis.cancel();
+      try {
+        window.speechSynthesis.cancel();
+      } catch (_) {}
     }
+    activeUtteranceRef.current = null;
     speechQueueRef.current = [];
     isPlayingQueueRef.current = false;
     isAgentSpeakingRef.current = false;
@@ -599,21 +629,21 @@ CRITICAL INSTRUCTIONS FOR VOICE:
   if (!isOpen) return null;
 
   return (
-    <div className="fixed inset-0 z-50 bg-[#0d0f12]/95 backdrop-blur-xl flex flex-col text-neutral-100 font-sans animate-fade-in select-none">
+    <div className="fixed inset-0 z-50 bg-[#0d0f12]/95 backdrop-blur-xl flex flex-col text-neutral-100 font-sans animate-fade-in select-none h-screen h-[100dvh] pt-[max(0.5rem,env(safe-area-inset-top))] pb-[max(0.75rem,env(safe-area-inset-bottom))] overflow-hidden">
       {/* 1. Header Bar: Voxify Live Call Status & Language Selector */}
-      <div className="flex items-center justify-between px-4 sm:px-8 py-4 sm:py-6 border-b border-neutral-800/80">
-        <div className="flex items-center gap-3">
-          <div className="w-9 h-9 rounded-xl bg-amber-500 flex items-center justify-center text-neutral-950">
-            <Radio className="w-5 h-5 animate-pulse" />
+      <div className="flex items-center justify-between px-4 sm:px-8 py-3 sm:py-5 border-b border-neutral-800/80 shrink-0">
+        <div className="flex items-center gap-2.5 sm:gap-3">
+          <div className="w-8 h-8 sm:w-9 sm:h-9 rounded-xl bg-amber-500 flex items-center justify-center text-neutral-950 shrink-0">
+            <Radio className="w-4 h-4 sm:w-5 sm:h-5 animate-pulse" />
           </div>
           <div>
             <div className="flex items-center gap-2">
-              <h2 className="font-semibold text-base tracking-tight text-white">Voxify Live Call</h2>
-              <span className="text-[10px] bg-amber-500/10 text-amber-400 border border-amber-500/30 px-2 py-0.5 rounded-full font-mono font-medium">
-                Groq LPU Sub-200ms
+              <h2 className="font-semibold text-sm sm:text-base tracking-tight text-white">Voxify Live Call</h2>
+              <span className="text-[10px] bg-amber-500/10 text-amber-400 border border-amber-500/30 px-2 py-0.5 rounded-full font-mono font-medium hidden xs:inline-block">
+                Sub-200ms
               </span>
             </div>
-            <p className="text-xs text-neutral-400">Two-way continuous voice partner</p>
+            <p className="text-[11px] sm:text-xs text-neutral-400">Two-way voice partner</p>
           </div>
         </div>
 
@@ -621,8 +651,11 @@ CRITICAL INSTRUCTIONS FOR VOICE:
         <div className="relative">
           <button
             type="button"
-            onClick={() => setLangDropdownOpen(!langDropdownOpen)}
-            className="flex items-center gap-1.5 px-3 py-1.5 rounded-xl bg-neutral-900 border border-neutral-800 text-xs font-medium text-neutral-300 hover:text-white hover:border-neutral-700 transition-colors cursor-pointer"
+            onClick={() => {
+              unlockMobileAudio();
+              setLangDropdownOpen(!langDropdownOpen);
+            }}
+            className="min-h-[40px] flex items-center gap-1.5 px-3 py-1.5 rounded-xl bg-neutral-900 border border-neutral-800 text-xs font-medium text-neutral-300 hover:text-white hover:border-neutral-700 transition-colors cursor-pointer"
           >
             <Languages className="w-3.5 h-3.5 text-amber-400" />
             <span>{SUPPORTED_LANGUAGES.find((l) => l.code === selectedLang)?.label.split(" ")[0]}</span>
@@ -636,10 +669,11 @@ CRITICAL INSTRUCTIONS FOR VOICE:
                   key={lang.code}
                   type="button"
                   onClick={() => {
+                    unlockMobileAudio();
                     setSelectedLang(lang.code);
                     setLangDropdownOpen(false);
                   }}
-                  className={`w-full text-left px-3.5 py-2 hover:bg-neutral-800/80 font-medium transition-colors ${
+                  className={`w-full text-left px-3.5 py-2.5 hover:bg-neutral-800/80 font-medium transition-colors ${
                     selectedLang === lang.code ? "text-amber-400 bg-amber-500/10" : "text-neutral-300"
                   }`}
                 >
@@ -652,34 +686,34 @@ CRITICAL INSTRUCTIONS FOR VOICE:
       </div>
 
       {/* 2. Main Stage: Glowing Audio Orb Canvas & Spoken Dialogue */}
-      <div className="flex-1 flex flex-col items-center justify-center px-4 relative overflow-hidden">
+      <div className="flex-1 flex flex-col items-center justify-center px-4 relative overflow-y-auto no-scrollbar py-2">
         {/* Canvas Visualizer Orb */}
-        <div className="relative flex items-center justify-center my-4">
+        <div className="relative flex items-center justify-center my-2 sm:my-4 shrink-0">
           <canvas
             ref={canvasRef}
-            width={340}
-            height={340}
-            className="w-[280px] h-[280px] sm:w-[340px] sm:h-[340px]"
+            width={320}
+            height={320}
+            className="w-[180px] h-[180px] xs:w-[220px] xs:h-[220px] sm:w-[320px] sm:h-[320px] max-h-[30vh]"
           />
 
           {/* Central Pulsing State Icon inside Orb */}
           <div className="absolute inset-0 flex flex-col items-center justify-center pointer-events-none">
             {agentState === "speaking" ? (
-              <Volume2 className="w-10 h-10 text-white drop-shadow-md animate-pulse" />
+              <Volume2 className="w-8 h-8 sm:w-10 sm:h-10 text-white drop-shadow-md animate-pulse" />
             ) : agentState === "thinking" ? (
-              <Zap className="w-10 h-10 text-blue-100 drop-shadow-md animate-spin" />
+              <Zap className="w-8 h-8 sm:w-10 sm:h-10 text-blue-100 drop-shadow-md animate-spin" />
             ) : isMuted ? (
-              <MicOff className="w-10 h-10 text-neutral-400 drop-shadow-md" />
+              <MicOff className="w-8 h-8 sm:w-10 sm:h-10 text-neutral-400 drop-shadow-md" />
             ) : (
-              <Mic className="w-10 h-10 text-emerald-100 drop-shadow-md" />
+              <Mic className="w-8 h-8 sm:w-10 sm:h-10 text-emerald-100 drop-shadow-md" />
             )}
           </div>
         </div>
 
         {/* State Headline Badge */}
-        <div className="mb-4 text-center">
+        <div className="mb-3 text-center shrink-0">
           <span
-            className={`inline-flex items-center gap-2 px-4 py-1.5 rounded-full text-xs font-medium ${
+            className={`inline-flex items-center gap-2 px-3.5 py-1.5 rounded-full text-xs font-medium ${
               agentState === "speaking"
                 ? "bg-amber-500/15 text-amber-300 border border-amber-500/30"
                 : agentState === "thinking"
@@ -711,13 +745,13 @@ CRITICAL INSTRUCTIONS FOR VOICE:
         </div>
 
         {/* Live Spoken Text Bubble */}
-        <div className="max-w-xl w-full min-h-[72px] px-4 py-3 rounded-2xl bg-neutral-900/60 border border-neutral-800/80 text-center flex items-center justify-center">
+        <div className="max-w-xl w-full min-h-[58px] sm:min-h-[72px] px-3.5 py-2.5 rounded-2xl bg-neutral-900/60 border border-neutral-800/80 text-center flex items-center justify-center shrink-0">
           {liveUserSpeech ? (
-            <p className="text-sm sm:text-base text-neutral-200 font-sans italic">
+            <p className="text-xs sm:text-base text-neutral-200 font-sans italic">
               &ldquo;{liveUserSpeech}&rdquo;
             </p>
           ) : liveAgentSpeech ? (
-            <p className="text-sm sm:text-base text-amber-200/90 font-sans">
+            <p className="text-xs sm:text-base text-amber-200/90 font-sans">
               {liveAgentSpeech}
             </p>
           ) : (
@@ -731,14 +765,15 @@ CRITICAL INSTRUCTIONS FOR VOICE:
 
         {/* Mic Error Banner if blocked or missing */}
         {micError && (
-          <div className="max-w-xl w-full mx-auto mt-3 px-4 py-2.5 rounded-xl bg-amber-500/10 border border-amber-500/30 text-amber-300 text-xs flex items-center justify-between gap-3">
+          <div className="max-w-xl w-full mx-auto mt-2 px-3.5 py-2 rounded-xl bg-amber-500/10 border border-amber-500/30 text-amber-300 text-xs flex items-center justify-between gap-2.5 shrink-0">
             <div className="flex items-center gap-2">
               <AlertCircle className="w-4 h-4 shrink-0 text-amber-400" />
-              <span>{micError}</span>
+              <span className="text-[11px] sm:text-xs">{micError}</span>
             </div>
             <button
               type="button"
               onClick={() => {
+                unlockMobileAudio();
                 hasPermissionErrorRef.current = false;
                 setMicError(null);
                 startListeningLoop();
@@ -754,24 +789,25 @@ CRITICAL INSTRUCTIONS FOR VOICE:
         <form
           onSubmit={(e) => {
             e.preventDefault();
+            unlockMobileAudio();
             if (textInput.trim() && !isAgentSpeakingRef.current) {
               handleUserSpoke(textInput.trim());
               setTextInput("");
             }
           }}
-          className="max-w-xl w-full mx-auto mt-3 px-3 py-1.5 rounded-2xl bg-neutral-900 border border-neutral-800 flex items-center gap-2 focus-within:border-amber-500/40"
+          className="max-w-xl w-full mx-auto mt-2 px-3 py-1.5 rounded-2xl bg-neutral-900 border border-neutral-800 flex items-center gap-2 focus-within:border-amber-500/40 shrink-0"
         >
           <input
             type="text"
             value={textInput}
             onChange={(e) => setTextInput(e.target.value)}
             placeholder="Type any message to converse with Voxify..."
-            className="flex-1 bg-transparent outline-none text-xs text-neutral-200 placeholder-neutral-500 font-sans"
+            className="flex-1 bg-transparent outline-none text-xs sm:text-sm text-neutral-200 placeholder-neutral-500 font-sans"
           />
           <button
             type="submit"
             disabled={!textInput.trim() || agentState === "thinking"}
-            className="px-3 py-1 rounded-xl bg-amber-500 hover:bg-amber-400 disabled:opacity-40 text-neutral-950 font-semibold text-xs transition-colors cursor-pointer flex items-center gap-1"
+            className="min-h-[36px] px-3 py-1 rounded-xl bg-amber-500 hover:bg-amber-400 disabled:opacity-40 text-neutral-950 font-semibold text-xs transition-colors cursor-pointer flex items-center gap-1"
           >
             <span>Send</span>
             <Send className="w-3 h-3" />
@@ -781,17 +817,17 @@ CRITICAL INSTRUCTIONS FOR VOICE:
 
       {/* 3. Collapsible Live Transcript Drawer */}
       {transcriptOpen && (
-        <div className="max-w-2xl mx-auto w-full px-4 mb-3">
-          <div className="bg-[#14161a] border border-neutral-800 rounded-2xl p-4 max-h-48 overflow-y-auto space-y-3 no-scrollbar text-xs">
+        <div className="max-w-2xl mx-auto w-full px-4 mb-2 shrink-0">
+          <div className="bg-[#14161a] border border-neutral-800 rounded-2xl p-3 sm:p-4 max-h-36 sm:max-h-48 overflow-y-auto space-y-2.5 no-scrollbar text-xs">
             <div className="flex items-center justify-between pb-2 border-b border-neutral-800 text-neutral-400">
-              <span className="font-semibold uppercase tracking-wider text-[10px]">Call Transcript ({transcript.length} turns)</span>
+              <span className="font-medium text-xs text-neutral-400">Call transcript ({transcript.length} turns)</span>
               <button
                 type="button"
                 onClick={handleCopyTranscript}
-                className="flex items-center gap-1 text-neutral-400 hover:text-white transition-colors cursor-pointer"
+                className="flex items-center gap-1 text-neutral-400 hover:text-white transition-colors cursor-pointer text-xs"
               >
                 {copiedId === "all" ? <Check className="w-3 h-3 text-emerald-400" /> : <Copy className="w-3 h-3" />}
-                <span>{copiedId === "all" ? "Copied" : "Copy All"}</span>
+                <span>{copiedId === "all" ? "Copied" : "Copy"}</span>
               </button>
             </div>
 
@@ -811,12 +847,15 @@ CRITICAL INSTRUCTIONS FOR VOICE:
       )}
 
       {/* 4. Bottom Controls: Mute, Transcript Toggle, Barge-in Interrupt, and End Call */}
-      <div className="px-4 sm:px-8 py-5 border-t border-neutral-800/80 bg-neutral-950/80 flex items-center justify-between max-w-xl mx-auto w-full gap-4">
+      <div className="px-4 sm:px-8 py-3 sm:py-4 border-t border-neutral-800/80 bg-neutral-950/80 flex items-center justify-between max-w-xl mx-auto w-full gap-3 shrink-0">
         {/* Toggle Transcript */}
         <button
           type="button"
-          onClick={() => setTranscriptOpen(!transcriptOpen)}
-          className={`px-3 py-2 rounded-xl border text-xs font-medium flex items-center gap-1.5 transition-colors cursor-pointer ${
+          onClick={() => {
+            unlockMobileAudio();
+            setTranscriptOpen(!transcriptOpen);
+          }}
+          className={`min-h-[44px] px-3 py-2 rounded-xl border text-xs font-medium flex items-center gap-1.5 transition-colors cursor-pointer ${
             transcriptOpen
               ? "bg-neutral-800 border-neutral-700 text-white"
               : "bg-neutral-900 border-neutral-800 text-neutral-400 hover:text-white"
@@ -832,8 +871,11 @@ CRITICAL INSTRUCTIONS FOR VOICE:
           {/* Mute Button */}
           <button
             type="button"
-            onClick={toggleMute}
-            className={`w-12 h-12 rounded-full flex items-center justify-center transition-all cursor-pointer ${
+            onClick={() => {
+              unlockMobileAudio();
+              toggleMute();
+            }}
+            className={`min-h-[44px] min-w-[44px] w-12 h-12 rounded-full flex items-center justify-center transition-all cursor-pointer ${
               isMuted
                 ? "bg-rose-500/20 text-rose-400 border border-rose-500/40"
                 : "bg-neutral-800 text-white hover:bg-neutral-700 border border-neutral-700"
@@ -847,8 +889,11 @@ CRITICAL INSTRUCTIONS FOR VOICE:
           {agentState === "speaking" && (
             <button
               type="button"
-              onClick={stopAgentSpeech}
-              className="px-3.5 py-2.5 rounded-full bg-amber-500/20 border border-amber-500/40 text-amber-300 hover:bg-amber-500/30 text-xs font-semibold flex items-center gap-1.5 transition-all cursor-pointer"
+              onClick={() => {
+                unlockMobileAudio();
+                stopAgentSpeech();
+              }}
+              className="min-h-[44px] px-3.5 py-2.5 rounded-full bg-amber-500/20 border border-amber-500/40 text-amber-300 hover:bg-amber-500/30 text-xs font-semibold flex items-center gap-1.5 transition-all cursor-pointer"
               title="Interrupt and speak"
             >
               <RotateCcw className="w-3.5 h-3.5" />
@@ -860,7 +905,7 @@ CRITICAL INSTRUCTIONS FOR VOICE:
           <button
             type="button"
             onClick={handleEndCall}
-            className="w-12 h-12 rounded-full bg-rose-600 hover:bg-rose-700 text-white flex items-center justify-center shadow-lg shadow-rose-600/30 transition-all cursor-pointer"
+            className="min-h-[44px] min-w-[44px] w-12 h-12 rounded-full bg-rose-600 hover:bg-rose-700 text-white flex items-center justify-center shadow-lg shadow-rose-600/30 transition-all cursor-pointer"
             title="End Call"
           >
             <PhoneOff className="w-5 h-5" />
