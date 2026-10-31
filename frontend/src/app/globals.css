@@ -9,6 +9,10 @@
   * {
     border-color: #f1f5f9;
   }
+
+  body {
+    font-variant-numeric: tabular-nums;
+  }
 }
 
 /* Invisible scrollbar: keeps smooth scrolling active without any visible track or thumb */

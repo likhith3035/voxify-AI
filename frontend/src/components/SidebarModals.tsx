@@ -34,6 +34,7 @@ export type SidebarModalType =
   | "agents"
   | "scheduled"
   | "knowledge"
+  | "voice_call"
   | null;
 
 interface SidebarModalsProps {
